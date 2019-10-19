@@ -1,0 +1,284 @@
+scope init_rex_func: {
+    ld c,rex_t.init_x
+    ld b,rex_t.init_y
+    ld l,rex_t.width
+    ld h,rex_t.height
+    call init_gobj_func
+    
+    ld c,rex_t.roff_x
+    ld b,rex_t.roff_y
+    call set_rect_offset_gobj_func
+    
+    ld bc,rex_animation
+    call set_anim_gobj_func
+    ld a,rex_anim_state.idle
+    call set_anim_state_gobj_func
+    
+    ld a,gobj_t.flags.is_active
+    call set_flag_gobj_func
+    
+    xor a
+    ld hl,rex_t.distance
+    add hl,de
+    ld (hl+),a
+    ld (hl+),a
+    ld (hl+),a
+    ld hl,rex_t.is_dead
+    add hl,de
+    ld (hl),a
+    ld hl,rex_t.jump_c
+    add hl,de
+    ld (hl),a
+    
+    ret
+}
+
+scope update_rex_func: {
+    ldh a,(game_running)
+    or a
+    jr z,skip_logic
+        ld hl,rex_t.is_dead
+        add hl,de
+        ld a,(hl)
+        or a
+        jr nz,skip_logic
+            call rex_logic_func
+    skip_logic:
+    
+    call update_anim_gobj_func
+    
+    ldh a,(oam_slot)
+    call copy_to_oam_gobj_func
+    ldh (oam_slot),a
+    ret
+}
+
+scope rex_logic_func: {
+    key_not_hold(KEY_DOWN)
+    jr z,skip_init_jump
+    key_hold(KEY_A | KEY_UP)
+    jr z,skip_init_jump
+        ldh a,(held_a_on_init)
+        or a
+        jr nz,skip_init_jump
+            ld a,gobj_t.flags.is_on_ground
+            call get_flag_gobj_func
+            jr z,skip_init_jump
+                ld hl,rex_t.jump_c
+                add hl,de
+                ld a,rex_t.init_jump_c
+                ld (hl),a
+                
+                ld a,sound.jump
+                call play_sound
+    skip_init_jump:
+    
+    key_release(KEY_A)
+    jr nz,do_end_jump
+    key_release(KEY_UP)
+    jr z,skip_end_jump
+    do_end_jump:
+        ld hl,rex_t.jump_c
+        add hl,de
+        ld (hl),0
+    skip_end_jump:
+    
+    key_hold(KEY_DOWN)
+    jr z,skip_quick_down
+        ld hl,rex_t.jump_c
+        add hl,de
+        ld (hl),0
+        ld bc,rex_t.quick_down_acc
+        call set_ay_gobj_func
+    skip_quick_down:
+    
+    key_not_hold(KEY_DOWN)
+    jr z,skip_zero_ay
+        ld bc,fp8(0)
+        call set_ay_gobj_func
+    skip_zero_ay:
+    
+    ld hl,rex_t.jump_c
+    add hl,de
+    ld a,(hl)
+    or a
+    jr z,skip_jump
+        dec a
+        ld (hl),a
+        ld bc,rex_t.jvel
+        call set_vy_gobj_func
+    skip_jump:
+    
+    call apply_physics_gobj_func
+    
+    check_y:
+        ld hl,gobj_t.y+1
+        add hl,de
+        ld a,(hl)
+        cp ground_y
+        jr c,above_ground
+            ld a,ground_y
+            ld (hl-),a
+            xor a
+            ld (hl),a
+            ld a,gobj_t.flags.is_on_ground
+            call set_flag_gobj_func
+            jr check_y_end
+        above_ground:
+            ld a,gobj_t.flags.is_on_ground
+            call reset_flag_gobj_func
+    check_y_end:
+    
+    key_hold(KEY_DOWN)
+    jr z,no_duck
+        ld a,gobj_t.flags.is_on_ground
+        call get_flag_gobj_func
+        jr z,no_duck
+    no_duck:
+    
+    set_anim:
+        ld a,gobj_t.flags.is_on_ground
+        call get_flag_gobj_func
+        jr nz,no_jump_anim
+            ld a,rex_anim_state.jump
+            jr set_anim_end
+        no_jump_anim:
+            key_hold(KEY_DOWN)
+            jr z,no_duck_anim
+                ld a,rex_anim_state.run_duck
+                jr set_anim_end
+        no_duck_anim:
+            ld a,rex_anim_state.run
+    set_anim_end:
+        call set_anim_state_gobj_func
+        
+    set_rect:
+        ld hl,gobj_t.anim_state
+        add hl,de
+        ld a,(hl)
+        ld l,rex_t.width
+        ld h,rex_t.height
+        ld c,rex_t.roff_x
+        ld b,rex_t.roff_y
+        cp rex_anim_state.run_duck
+        jr nz,+
+            ld l,rex_t.ducking_width
+            ld h,rex_t.ducking_height
+            ld c,rex_t.ducking_roff_x
+            ld b,rex_t.ducking_roff_y
+        +;  push hl
+            call set_rect_offset_gobj_func
+            pop bc
+            ld hl,gobj_t.w
+            add hl,de
+            ld (hl),c
+            ld hl,gobj_t.h
+            add hl,de
+            ld (hl),b
+        
+    call rex_check_collision_func
+    ld hl,rex_t.is_dead
+    add hl,de
+    ld a,(hl)
+    or a
+    jr z,not_dead
+        xor a
+        ldh (game_running),a
+        ld a,rex_anim_state.dead
+        call set_anim_state_gobj_func
+        push de
+        call check_hi_score
+        call put_score
+        pop de
+    not_dead:
+    
+    ldh a,(intro_playing)
+    or a
+    jr nz,end_inc_distance
+        ld hl,rex_t.distance
+        add hl,de
+        inc (hl)
+        jr nz,end_inc_distance
+            inc hl
+            inc (hl)
+            jr nz,end_inc_distance
+                inc hl
+                inc (hl)
+    end_inc_distance:
+    
+    ret
+}
+
+scope rex_check_collision_func: {
+    push de
+    ld b,d
+    ld c,e
+    check_cactus:
+        ld a,num_cactus
+        push af
+        inc sp
+        ld de,cactus_buffer
+        check_cactus_loop:
+            ld a,gobj_t.flags.is_active
+            call get_flag_gobj_func
+            jr z,skip_cactus
+                call intersects_gobj_func
+                jr z,skip_cactus
+                    ld hl,rex_t.is_dead
+                    add hl,bc
+                    ld (hl),1
+                    
+                    ld a,sound.death
+                    call play_sound
+                    
+                    jr check_cactus_end
+            skip_cactus:
+                ld hl,cactus_t.sizeof
+                add hl,de
+                ld d,h
+                ld e,l
+                ldhl sp,0
+                dec (hl)
+                jr nz,check_cactus_loop
+    check_cactus_end:
+        inc sp
+    check_enemy:
+        ld a,num_enemy
+        push af
+        inc sp
+        ld de,enemy_buffer
+        check_enemy_loop:
+            ld a,gobj_t.flags.is_active
+            call get_flag_gobj_func
+            jr z,skip_enemy
+                call intersects_gobj_func
+                jr z,skip_enemy
+                    ld hl,rex_t.is_dead
+                    add hl,bc
+                    ld (hl),1
+                    
+                    ld a,sound.death
+                    call play_sound
+                    
+                    jr check_enemy_end
+            skip_enemy:
+                ld hl,enemy_t.sizeof
+                add hl,de
+                ld d,h
+                ld e,l
+                ldhl sp,0
+                dec (hl)
+                jr nz,check_enemy_loop
+    check_enemy_end:
+        inc sp
+    end:
+        pop de
+        ret
+}
+
+scope clear_rex_func: {
+    call clear_gobj_func
+    
+    ret
+}
+

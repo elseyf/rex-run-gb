@@ -1,0 +1,29 @@
+//------------------------------------------------------------------------------
+// Macros
+//------------------------------------------------------------------------------
+macro struct(_name) {
+    pushvar base, origin
+    base (0x000000)
+    {_name}({_name})
+    scope {_name} {
+        constant sizeof(pc())
+    }
+    pullvar origin, base
+}
+macro field(_name, _size) {
+    scope {_name}: {
+        constant sizeof({_size})
+    }
+    base ({_name} + {_size})
+}
+//------------------------------------------------------------------------------
+include "struct/obj_struct.hgas"
+include "struct/fp8_struct.hgas"
+include "struct/rect_struct.hgas"
+include "struct/gobj_struct.hgas"
+
+include "struct/rex_struct.hgas"
+include "struct/cactus_struct.hgas"
+include "struct/enemy_struct.hgas"
+include "struct/sky_obj_struct.hgas"
+

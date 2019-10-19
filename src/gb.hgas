@@ -1,0 +1,456 @@
+
+//------------------------------------------------------------------------------
+//Defines
+//------------------------------------------------------------------------------
+constant ROM_START_ADDR( start)
+constant VRAM(          0x8000)
+constant OBJ_CHR_ADDR(  VRAM)
+constant BG_CHR_ADDR(   VRAM+0x800)
+constant BG_MAP_ADDR(   VRAM+0x1800)
+constant WIN_MAP_ADDR(  VRAM+0x1C00)
+constant OBJ_CHR(       OBJ_CHR_ADDR)
+constant BG_CHR(        BG_CHR_ADDR)
+constant BG_MAP(        BG_MAP_ADDR)
+constant WIN_MAP(       WIN_MAP_ADDR)
+
+constant WRAM(          WRAM_START)
+constant HRAM(          HRAM_START)
+
+constant REG_JOY0(           0xFF00)
+    constant KEY_OFF(        0x30)
+    constant KEY_DIR(        0x20)
+    constant KEY_BTN(        0x10)
+    constant KEY_DOWN(       0x80)
+    constant KEY_UP(         0x40)
+    constant KEY_LEFT(       0x20)
+    constant KEY_RIGHT(      0x10)
+    constant KEY_START(      0x08)
+    constant KEY_SELECT(     0x04)
+    constant KEY_B(          0x02)
+    constant KEY_A(          0x01)
+    constant KEY_ANY_DIR(    0xF0)
+    constant KEY_ANY_BTN(    0x0F)
+
+constant REG_DIV(            0xFF04)
+constant REG_TIMA(           0xFF05)
+constant REG_TMA(            0xFF06)
+constant REG_TAC(            0xFF07)
+
+constant REG_IF(             0xFF0F)
+    constant JOYPAD_IF(      0x10)
+    constant SERIAL_IF(      0x08)
+    constant TIMER_IF(       0x04)
+    constant LCD_STAT_IF(    0x02)
+    constant VBLANK_IF(      0x01)
+
+constant REG_NR10(0xFF10)
+constant REG_NR11(0xFF11)
+constant REG_NR12(0xFF12)
+constant REG_NR13(0xFF13)
+constant REG_NR14(0xFF14)
+constant REG_NR21(0xFF16)
+constant REG_NR22(0xFF17)
+constant REG_NR23(0xFF18)
+constant REG_NR24(0xFF19)
+constant REG_NR30(0xFF1A)
+constant REG_NR31(0xFF1B)
+constant REG_NR32(0xFF1C)
+constant REG_NR33(0xFF1D)
+constant REG_NR34(0xFF1E)
+constant REG_NR41(0xFF20)
+constant REG_NR42(0xFF21)
+constant REG_NR43(0xFF22)
+constant REG_NR44(0xFF23)
+constant REG_NR50(0xFF24)
+constant REG_NR51(0xFF25)
+constant REG_NR52(0xFF26)
+
+constant REG_LCDC(           0xFF40)
+    constant LCDC_DISPLAY_ENABLE(            0x80)
+    constant LCDC_WIN_MAP_SELECT(            0x40)
+    constant LCDC_WIN_ENABLE(                0x20)
+    constant LCDC_BG_WIN_TILE_DATA_SELECT(   0x10)
+    constant LCDC_BG_MAP_SELECT(             0x08)
+    constant LCDC_OBJ_SIZE(                  0x04)
+    constant LCDC_OBJ_ENABLE(                0x02)
+    constant LCDC_BG_ENABLE(                 0x01)
+
+constant REG_LCD_STAT(       0xFF41)
+    constant LCD_STAT_LYC_LY_INT(            0x40)
+    constant LCD_STAT_MODE_2_INT(            0x20)
+    constant LCD_STAT_MODE_1_INT(            0x10)
+    constant LCD_STAT_MODE_0_INT(            0x08)
+    constant LCD_STAT_LYC_LY_EQ_FLAG(        0x04)
+    constant LCD_STAT_MODE_FLAG(             0x03)
+    constant LCD_STAT_MODE_0(                0x00)
+    constant LCD_STAT_MODE_1(                0x01)
+    constant LCD_STAT_MODE_2(                0x02)
+    constant LCD_STAT_MODE_3(                0x03)
+
+constant REG_BG_SCY(         0xFF42)
+constant REG_BG_SCX(         0xFF43)
+
+constant REG_LY(             0xFF44)
+constant REG_LYC(            0xFF45)
+
+constant REG_OAM_DMA(        0xFF46)
+
+constant REG_BGP(            0xFF47)
+constant REG_OBP0(           0xFF48)
+constant REG_OBP1(           0xFF49)
+
+constant REG_WY(            0xFF4A)
+constant REG_WX(            0xFF4B)
+
+constant REG_INT(            0xFFFF)
+    constant JOYPAD_INT(     0x10)
+    constant SERIAL_INT(     0x08)
+    constant TIMER_INT(      0x04)
+    constant LCD_STAT_INT(   0x02)
+    constant VBLANK_INT(     0x01)
+
+constant SCREEN_WIDTH(   160)
+constant SCREEN_HEIGHT(  144)
+
+constant GB_PALETTE(0xE4)
+
+constant DMG( 0x0001)
+constant GBP( 0x00FF)
+constant CGB( 0x0011)
+constant GBA( 0x0111)
+
+constant MAX_BYTES_PER_VBLANK(    64)
+
+//------------------------------------------------------------------------------
+//Macros
+//------------------------------------------------------------------------------
+macro nop(evaluate _val) {
+    while ({_val} > 0) {
+        nop
+        evaluate _val({_val} - 1)
+    }
+}
+
+//Workaround: add sp,r8 does not work in bass-m
+macro add_sp(_v) {
+    db 0xE8,{_v}
+}
+
+macro breakpoint() {
+    ld b,b
+}
+
+macro enable_int(_int) {
+    ldh a,(REG_INT)
+    or {_int}
+    ldh (REG_INT),a
+}
+
+macro disable_int(_int) {
+    ldh a,(REG_INT)
+    and ~{_int}
+    ldh (REG_INT),a
+}
+
+macro set_if(_flag) {
+    ldh a,(REG_IF)
+    or {_flag}
+    ldh (REG_IF),a
+}
+
+macro clear_if(_flag) {
+    ldh a,(REG_IF)
+    and ~{_flag}
+    ldh (REG_IF),a
+}
+
+macro init_gameboy() {
+    jp init_gameboy_func
+}
+
+macro enable_display() {
+    ldh a,(REG_LCDC)
+    or LCDC_DISPLAY_ENABLE
+    ldh (REG_LCDC),a
+}
+
+macro scope disable_display() {
+    wait{#}:
+        ldh a,(REG_LCD_STAT)
+        and LCD_STAT_MODE_FLAG
+        cp LCD_STAT_MODE_1
+        jr nz,wait{#}
+    ldh a,(REG_LCDC)
+    and ~LCDC_DISPLAY_ENABLE
+    ldh (REG_LCDC),a
+}
+
+macro enable_bg() {
+    ldh a,(REG_LCDC)
+    or LCDC_BG_ENABLE
+    ldh (REG_LCDC),a
+}
+
+macro disable_bg() {
+    ldh a,(REG_LCDC)
+    and ~LCDC_BG_ENABLE
+    ldh (REG_LCDC),a
+}
+
+macro enable_win() {
+    ldh a,(REG_LCDC)
+    or LCDC_WIN_ENABLE
+    ldh (REG_LCDC),a
+}
+
+macro disable_win() {
+    ldh a,(REG_LCDC)
+    and ~LCDC_WIN_ENABLE
+    ldh (REG_LCDC),a
+}
+
+macro enable_obj() {
+    ldh a,(REG_LCDC)
+    or LCDC_OBJ_ENABLE
+    ldh (REG_LCDC),a
+}
+
+macro disable_obj() {
+    ldh a,(REG_LCDC)
+    and ~LCDC_OBJ_ENABLE
+    ldh (REG_LCDC),a
+}
+
+macro set_bg_win_tile_offset(_flag) {
+    ldh a,(REG_LCDC)
+    if ({_flag} == 0) {
+        and ~LCDC_BG_WIN_TILE_DATA_SELECT
+    } else {
+        or LCDC_BG_WIN_TILE_DATA_SELECT
+    }
+    ldh (REG_LCDC),a
+}
+
+macro set_bg_map_offset(_flag) {
+    ldh a,(REG_LCDC)
+    if ({_flag} == 0) {
+        and ~LCDC_BG_MAP_SELECT
+    } else {
+        or LCDC_BG_MAP_SELECT
+    }
+    ldh (REG_LCDC),a
+}
+
+macro set_win_map_offset(_flag) {
+    ldh a,(REG_LCDC)
+    if ({_flag} == 0) {
+        and ~LCDC_WIN_MAP_SELECT
+    } else {
+        or LCDC_WIN_MAP_SELECT
+    }
+    ldh (REG_LCDC),a
+}
+
+macro display_state() {
+    ldh a,(REG_LCDC)
+    and LCDC_DISPLAY_ENABLE
+}
+
+macro bg_state() {
+    ldh a,(REG_LCDC)
+    and LCDC_BG_ENABLE
+}
+
+macro obj_state() {
+    ldh a,(REG_LCDC)
+    and LCDC_OBJ_ENABLE
+}
+
+macro vblank_wait() {
+    -;  halt;nop
+        ldh a,(vblank_happened)
+        or a
+        jr z,-
+            xor a
+            ldh (vblank_happened),a
+}
+
+macro copy(_dst, _src, _size) {
+    ld hl,{_dst}
+    ld de,{_src}
+    ld bc,{_size}
+    call copy_func
+}
+
+macro fill(_dst, _val, _size) {
+    ld hl,{_dst}
+    ld e,{_val}
+    ld bc,{_size}
+    call fill_func
+}
+
+macro set_bgp(_data) {
+    ld a,{_data}
+    ldh (bgp),a
+    ldh (REG_BGP),a
+}
+
+macro update_bgp(_data) {
+    ld a,{_data}
+    ldh (bgp),a
+}
+
+macro set_obp0(_data) {
+    ld a,{_data}
+    ldh (obp0),a
+    ldh (REG_OBP0),a
+}
+
+macro update_obp0(_data) {
+    ld a,{_data}
+    ldh (obp0),a
+}
+
+macro set_obp1(_data) {
+    ld a,{_data}
+    ldh (obp1),a
+    ldh (REG_OBP1),a
+}
+
+macro update_obp1(_data) {
+    ld a,{_data}
+    ldh (obp1),a
+}
+
+macro update_vram(_vaddr, _val) {
+    ld de,{_vaddr}
+    ld c,{_val}
+    call update_vram_func
+}
+
+macro set_bg_chr(_vaddr, _data, _size) {
+    copy((BG_CHR + {_vaddr}), {_data}, {_size})
+}
+
+macro set_bg_map(_vaddr, _data, _size) {
+    copy((BG_MAP + {_vaddr}), {_data}, {_size})
+}
+
+macro set_bg_map_rect(_x, _y, _w, _h, _data) {
+    ld l,{_x}
+    ld h,{_y}
+    ld c,{_w}
+    ld b,{_h}
+    ld de,{_data}
+    call set_bg_map_rect_func
+}
+
+macro set_bg_map_tile(_vaddr, _tile) {
+    ld de,{_vaddr}
+    ld c,{_tile}
+    call set_bg_map_tile_func
+}
+
+macro set_bg_map_tile_xy(_x, _y, _tile) {
+    ld e,{_x}
+    ld d,{_y}
+    ld c,{_tile}
+    call set_bg_map_tile_xy_func
+}
+
+macro update_bg_map_tile(_vaddr, _tile) {
+    ld de,{_vaddr}
+    ld c,{_tile}
+    call update_bg_map_tile_func
+}
+
+macro update_bg_map_tile_xy(_x, _y, _tile) {
+    ld e,{_x}
+    ld d,{_y}
+    ld c,{_tile}
+    call update_bg_map_tile_xy_func
+}
+
+macro set_obj_chr(_vaddr, _data, _size) {
+    copy((OBJ_CHR + {_vaddr}), {_data}, {_size})
+}
+
+macro set_obj(_obj, _x, _y, _tile, _attr) {
+    ld hl,{_obj}
+    ld c,{_y}
+    ld b,{_x}
+    ld e,{_tile}
+    ld d,{_attr}
+    call set_obj_func
+}
+
+macro copy_to_oam_obj(_obj) {
+    ld bc,{_obj}
+    ldh a,(oam_slot)
+    call copy_to_oam_obj_func
+    ldh (oam_slot),a
+}
+
+macro copy_to_oam_obj(_obj, _slot) {
+    ld bc,{_obj}
+    ld a,{_slot}
+    call copy_to_oam_obj_func
+}
+
+macro clear_oam_buffer() {
+    call clear_oam_buffer_func
+}
+
+macro set_bg_scroll(_x, _y) {
+    ld a,{_x}
+    ldh (REG_BG_SCX),a
+    ld a,{_y}
+    ldh (REG_BG_SCY),a
+}
+
+macro set_win_position(_x, _y) {
+    ld a,{_x}
+    ldh (win_x),a
+    ldh (REG_WX),a
+    ld a,{_y}
+    ldh (win_y),a
+    ldh (REG_WY),a
+}
+
+macro scope key_push(_key) {
+    ldh a,(joy0)
+    and {_key}
+    jr z,end{#}
+        ldh a,(old_joy0)
+        cpl
+        and {_key}
+    end{#}:
+}
+
+macro scope key_hold(_key) {
+    ldh a,(joy0)
+    and {_key}
+}
+
+macro scope key_release(_key) {
+    ldh a,(old_joy0)
+    and {_key}
+    jr z,end{#}
+        ldh a,(joy0)
+        cpl
+        and {_key}
+    end{#}:
+}
+
+macro scope key_not_hold(_key) {
+    ldh a,(joy0)
+    cpl
+    and {_key}
+}
+
+macro read_joypad() {
+    call read_joypad_func
+}
+
+include "gb.gasm"
+

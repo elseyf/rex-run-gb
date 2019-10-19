@@ -1,0 +1,97 @@
+scope init_enemy_func: {
+    ld c,enemy_t.init_x
+    ld l,enemy_t.width
+    ld h,enemy_t.height
+    call init_gobj_func
+    
+    ld c,enemy_t.roff_x
+    ld b,enemy_t.roff_y
+    call set_rect_offset_gobj_func
+    
+    ld bc,-enemy_t.speed
+    call set_vx_gobj_func
+    
+    ld bc,enemy_animation
+    call set_anim_gobj_func
+    ld a,enemy_anim_state.fly
+    call set_anim_state_gobj_func
+    
+    ld a,gobj_t.flags.is_active
+    call set_flag_gobj_func
+    
+    xor a
+    ld hl,enemy_t.entered_screen
+    add hl,de
+    ld (hl),a
+    
+    ret
+}
+
+scope update_enemy_func: {
+    ldh a,(game_running)
+    or a
+    jr z,skip_logic
+        ld a,gobj_t.flags.is_active
+        call get_flag_gobj_func
+        call nz,enemy_logic_func
+    skip_logic:
+    
+    ld a,gobj_t.flags.is_active
+    call get_flag_gobj_func
+    jr z,skip_copy_to_oam
+        ldh a,(oam_slot)
+        call copy_to_oam_gobj_func
+        ldh (oam_slot),a
+    skip_copy_to_oam:
+    
+    ret
+}
+
+scope enemy_logic_func: {
+    ld hl,speed
+    ld a,(hl+)
+    cpl
+    ld c,a
+    ld a,(hl)
+    cpl
+    ld b,a
+    inc bc
+    ld hl,0
+    call move_gobj_func
+    
+    call is_onscreen_enemy_func
+    jr nz,check_onscreen_end
+        ld hl,enemy_t.entered_screen
+        add hl,de
+        ld a,(hl)
+        or a
+        jr z,check_onscreen_end
+            call clear_enemy_func
+    check_onscreen_end:
+    
+    call update_anim_gobj_func
+    
+    ret
+}
+
+scope is_onscreen_enemy_func: {
+    ld hl,gobj_t.rect.right
+    add hl,de
+    ld a,(hl)
+    cp 160
+    ld a,0
+    jr nc,end
+        ld a,1
+        ld hl,enemy_t.entered_screen
+        add hl,de
+        ld (hl),a
+    end:
+        or a
+        ret
+}
+
+scope clear_enemy_func: {
+    call clear_gobj_func
+    ret
+}
+

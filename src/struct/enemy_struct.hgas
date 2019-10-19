@@ -1,0 +1,18 @@
+
+macro enemy_t(_name) {
+    scope {_name}: {
+        gobj_t(gobj)
+        field(entered_screen, 1)
+        
+        constant width(     22)
+        constant height(    8)
+        
+        constant roff_x(    1)
+        constant roff_y(    1)
+        
+        constant init_x(160)
+        constant speed(fp8(1.5))
+    }
+}
+struct(enemy_t)
+

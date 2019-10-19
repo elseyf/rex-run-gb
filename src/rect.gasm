@@ -1,0 +1,255 @@
+
+scope init_rect_func: {
+    push hl
+    
+    ld hl,rect_t.left
+    add hl,de
+    ld (hl),c
+    
+    ld hl,rect_t.right
+    add hl,de
+    ld a,b
+    add c
+    ld (hl),a
+    
+    pop bc
+    ld hl,rect_t.top
+    add hl,de
+    ld (hl),c
+    
+    ld hl,rect_t.bottom
+    add hl,de
+    ld a,b
+    add c
+    ld (hl),a
+    
+    ret
+}
+
+scope get_width_rect_func: {
+    ld hl,rect_t.right
+    add hl,de
+    ld a,(hl)
+    
+    ld hl,rect_t.left
+    add hl,de
+    sub (hl)
+    
+    ret
+}
+
+scope get_height_rect_func: {
+    ld hl,rect_t.bottom
+    add hl,de
+    ld a,(hl)
+    
+    ld hl,rect_t.top
+    add hl,de
+    sub (hl)
+    
+    ret
+}
+
+scope resize_rect_func: {
+    ld hl,rect_t.left
+    add hl,de
+    ld a,(hl)
+    add c
+    ld hl,rect_t.right
+    add hl,de
+    ld (hl),a
+    
+    ld hl,rect_t.top
+    add hl,de
+    ld a,(hl)
+    add b
+    ld hl,rect_t.bottom
+    add hl,de
+    ld (hl),a
+    
+    ret
+}
+
+scope move_rect_func: {
+    ld hl,rect_t.left
+    add hl,de
+    ld a,(hl)
+    add c
+    ld (hl),a
+    
+    ld hl,rect_t.right
+    add hl,de
+    ld a,(hl)
+    add c
+    ld (hl),a
+    
+    ld hl,rect_t.top
+    add hl,de
+    ld a,(hl)
+    add b
+    ld (hl),a
+    
+    ld hl,rect_t.bottom
+    add hl,de
+    ld a,(hl)
+    add b
+    ld (hl),a
+    
+    ret
+}
+
+scope moveTo_rect_func: {
+    call get_height_rect_func
+    push af
+    call get_width_rect_func
+    push af
+    
+    ld hl,rect_t.left
+    add hl,de
+    ld (hl),c
+    
+    ld hl,rect_t.right
+    add hl,de
+    pop af
+    add c
+    ld (hl),a
+    
+    
+    ld hl,rect_t.top
+    add hl,de
+    ld (hl),b
+    
+    ld hl,rect_t.bottom
+    add hl,de
+    pop af
+    add b
+    ld (hl),a
+    
+    ret
+}
+
+scope is_inside_horizontal_rect_func: {
+    ld hl,rect_t.right
+    add hl,bc
+    ld a,(hl)
+    ld hl,rect_t.left
+    add hl,de
+    cp (hl)
+    push af
+    
+    ld hl,rect_t.right
+    add hl,de
+    ld a,(hl)
+    ld hl,rect_t.left
+    add hl,bc
+    cp (hl)
+    
+    rl l
+    pop af
+    rl a
+    or l
+    cpl
+    and 1
+    
+    ret
+}
+
+scope is_inside_vertical_rect_func: {
+    ld hl,rect_t.bottom
+    add hl,bc
+    ld a,(hl)
+    ld hl,rect_t.top
+    add hl,de
+    cp (hl)
+    push af
+    
+    ld hl,rect_t.bottom
+    add hl,de
+    ld a,(hl)
+    ld hl,rect_t.top
+    add hl,bc
+    cp (hl)
+    
+    rl l
+    pop af
+    rl a
+    or l
+    cpl
+    and 1
+    
+    ret
+}
+
+scope is_left_of_rect_func: {
+    ld hl,rect_t.right
+    add hl,de
+    ld a,(hl)
+    ld hl,rect_t.left
+    add hl,bc
+    cp (hl)
+    
+    rl a
+    cpl
+    and 1
+    
+    ret
+}
+
+scope is_right_of_rect_func: {
+    ld hl,rect_t.right
+    add hl,bc
+    ld a,(hl)
+    ld hl,rect_t.left
+    add hl,de
+    cp (hl)
+    
+    rl a
+    cpl
+    and 1
+    
+    ret
+}
+
+scope is_above_of_rect_func: {
+    ld hl,rect_t.bottom
+    add hl,de
+    ld a,(hl)
+    ld hl,rect_t.top
+    add hl,bc
+    cp (hl)
+    
+    rl a
+    cpl
+    and 1
+    
+    ret
+}
+
+scope is_below_of_rect_func: {
+    ld hl,rect_t.bottom
+    add hl,bc
+    ld a,(hl)
+    ld hl,rect_t.top
+    add hl,de
+    cp (hl)
+    push af
+    
+    rl a
+    cpl
+    and 1
+    
+    ret
+}
+
+scope intersects_rect_func: {
+    call is_inside_horizontal_rect_func
+    push af
+    call is_inside_vertical_rect_func
+    ld l,a
+    pop af
+    and l
+    
+    ret
+}
+
+

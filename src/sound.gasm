@@ -1,0 +1,253 @@
+
+scope init_sound: {
+    xor a
+    ldh (REG_NR10),a
+    ldh (REG_NR11),a
+    ldh (REG_NR12),a
+    ldh (REG_NR13),a
+    ldh (REG_NR14),a
+    
+    ldh (REG_NR30),a
+    ldh (REG_NR31),a
+    ldh (REG_NR32),a
+    ldh (REG_NR33),a
+    ldh (REG_NR34),a
+    
+    ld hl,sound.triangle
+    ld de,0xFF30
+    ld c,16
+    -;  ld a,(hl+)
+        ld (de),a
+        inc de
+        dec c
+        jr nz,-
+        
+    ld a,0x77
+    ldh (REG_NR50),a
+    ld a,0x55
+    ldh (REG_NR51),a
+    ld a,0x80
+    ldh (REG_NR52),a
+    
+    xor a
+    ldh (sound_type),a
+    ldh (sound_ch1_type),a
+    ldh (sound_ch1_len),a
+    ldh (sound_ch1_c),a
+    ldh (sound_ch1_duration_c),a
+    ldh (sound_ch3_type),a
+    ldh (sound_ch3_len),a
+    ldh (sound_ch3_c),a
+    ldh (sound_ch3_duration_c),a
+    
+    ret
+}
+
+scope play_sound: {
+    ldh (sound_type),a
+    
+    ld hl,sound.sfx_table
+    sla a
+    add l
+    ld l,a
+    ld a,h
+    adc 0
+    ld h,a
+    ld a,(hl+)
+    ld h,(hl)
+    ld l,a
+    ld a,(hl+)
+    cp sound.ch1
+    jr nz,+
+        call init_ch1
+        jr end
+    +
+    cp sound.ch3
+    jr nz,+
+        call init_ch3
+        jr end
+    +
+    
+    end:
+        ret
+    
+    scope init_ch1: {
+        ldh a,(sound_type)
+        ldh (sound_ch1_type),a
+        
+        ld a,(hl+)
+        ldh (sound_ch1_len),a
+        xor a
+        ldh (sound_ch1_c),a
+        ldh (sound_ch1_duration_c),a
+        
+        ret
+    }
+    
+    scope init_ch3: {
+        ldh a,(sound_type)
+        ldh (sound_ch3_type),a
+        
+        ld a,(hl+)
+        ldh (sound_ch3_len),a
+        xor a
+        ldh (sound_ch3_c),a
+        ldh (sound_ch3_duration_c),a
+        
+        ret
+    }
+}
+
+scope update_sound: {
+    call update_ch1
+    call update_ch3
+    ret
+    
+    scope update_ch1: {
+        ldh a,(sound_ch1_duration_c)
+        or a
+        jr z,+
+            dec a
+            ldh (sound_ch1_duration_c),a
+            jr end
+        +;  ldh a,(sound_ch1_len)
+            or a
+            jr z,end
+                ld hl,sound.sfx_table
+                ldh a,(sound_ch1_type)
+                sla a
+                ld c,a
+                ld b,0
+                add hl,bc
+                ld a,(hl+)
+                ld h,(hl)
+                ld l,a
+                inc hl
+                inc hl
+                ldh a,(sound_ch1_c)
+                sla a
+                sla a
+                sla a
+                ld c,a
+                ld b,0
+                add hl,bc
+                
+                ld a,(hl+)
+                ldh (sound_ch1_duration_c),a
+                
+                ld bc,REG_NR10
+                ld a,(hl+)
+                ld (bc),a
+                inc bc
+                ld a,(hl+)
+                ld (bc),a
+                inc bc
+                ld a,(hl+)
+                ld (bc),a
+                inc bc
+                ld a,(hl+)
+                ld (bc),a
+                inc bc
+                ld a,(hl+)
+                ld (bc),a
+                inc bc
+                
+                ld hl,sound_ch1_c
+                inc (hl)
+                ld hl,sound_ch1_len
+                dec (hl)
+        end:
+            ret
+    }
+    
+    scope update_ch3: {
+        ldh a,(sound_ch3_duration_c)
+        or a
+        jr z,+
+            dec a
+            ldh (sound_ch3_duration_c),a
+            jr end
+        +;  ldh a,(sound_ch3_len)
+            or a
+            jr z,end
+                ld hl,sound.sfx_table
+                ldh a,(sound_ch3_type)
+                sla a
+                ld c,a
+                ld b,0
+                add hl,bc
+                ld a,(hl+)
+                ld h,(hl)
+                ld l,a
+                inc hl
+                inc hl
+                ldh a,(sound_ch3_c)
+                sla a
+                sla a
+                sla a
+                ld c,a
+                ld b,0
+                add hl,bc
+                
+                ld a,(hl+)
+                ldh (sound_ch3_duration_c),a
+                
+                ld bc,REG_NR30
+                ld a,(hl+)
+                ld (bc),a
+                inc bc
+                ld a,(hl+)
+                ld (bc),a
+                inc bc
+                ld a,(hl+)
+                ld (bc),a
+                inc bc
+                ld a,(hl+)
+                ld (bc),a
+                inc bc
+                ld a,(hl+)
+                ld (bc),a
+                inc bc
+                
+                ld hl,sound_ch3_c
+                inc (hl)
+                ld hl,sound_ch3_len
+                dec (hl)
+        end:
+            ret
+    }
+}
+
+scope sound: {
+    constant ch1(0)
+    constant ch2(1)
+    constant ch3(2)
+    constant ch4(3)
+    
+    constant jump(  0)
+    constant score( 1)
+    constant death( 2)
+    
+    triangle:
+        db 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF
+        db 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10
+        
+    sfx_table:
+        dw jump_data, score_data, death_data
+    jump_data:
+        db ch3, 2
+        db  3, 0x80, 0xF8, 0x20, 0x84, 0xC7, 0x00, 0x00
+        db  1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    score_data:
+        db ch1, 3
+        db  5, 0x00, 0xAA, 0xF0, 0x07, 0x87, 0x00, 0x00
+        db 14, 0x00, 0x84, 0xF0, 0x59, 0x87, 0x00, 0x00
+        db  1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    death_data:
+        db ch1, 4
+        db  3, 0x00, 0xB3, 0xF0, 0x1F, 0x80, 0x00, 0x00
+        db  2, 0x00, 0xB7, 0x00, 0x1F, 0x80, 0x00, 0x00
+        db  5, 0x00, 0xAA, 0xF0, 0x1F, 0x80, 0x00, 0x00
+        db  1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+}
+

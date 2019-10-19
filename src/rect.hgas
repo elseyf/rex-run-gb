@@ -1,0 +1,102 @@
+//------------------------------------------------------------------------------
+// Macros
+//------------------------------------------------------------------------------
+macro init_rect(_rect, _x, _y, _w, _h) {
+    ld c,{_x}
+    ld b,{_w}
+    ld l,{_y}
+    ld h,{_h}
+    ld de,{_rect}
+    call init_rect_func
+}
+
+macro get_width_rect(_rect) {
+    ld de,{_rect}
+    call get_width_rect_func
+}
+
+macro get_height_rect(_rect) {
+    ld de,{_rect}
+    call get_height_rect_func
+}
+
+macro resize_rect(_rect, _w, _h) {
+    ld c,{_w}
+    ld b,{_h}
+    ld de,{_rect}
+    call resize_rect_func
+}
+
+macro move_rect(_rect, _dx, _dy) {
+    ld c,{_dx}
+    ld b,{_dy}
+    ld de,{_rect}
+    call move_rect_func
+}
+
+macro moveTo_rect(_rect, _x, _y) {
+    ld c,{_x}
+    ld b,{_y}
+    ld de,{_rect}
+    call moveTo_rect_func
+}
+
+macro contains_rect(_rect, _px, _py) {
+    ld c,{_px}
+    ld b,{_py}
+    ld de,{_rect}
+    call contains_rect_func
+}
+
+macro is_inside_horizontal_rect(_rect_a, _rect_b) {
+    ld de,{_rect_a}
+    ld bc,{_rect_b}
+    call is_inside_horizontal_rect_func
+}
+
+macro is_inside_vertical_rect(_rect_a, _rect_b) {
+    ld de,{_rect_a}
+    ld bc,{_rect_b}
+    call is_inside_vertical_rect_func
+}
+
+macro is_left_of_rect(_rect_a, _rect_b) {
+    ld de,{_rect_a}
+    ld bc,{_rect_b}
+    call is_left_of_rect_func
+}
+
+macro is_right_of_rect(_rect_a, _rect_b) {
+    ld de,{_rect_a}
+    ld bc,{_rect_b}
+    call is_right_of_rect_func
+}
+
+macro is_above_of_rect(_rect_a, _rect_b) {
+    ld de,{_rect_a}
+    ld bc,{_rect_b}
+    call is_above_of_rect_func
+}
+
+macro is_below_of_rect(_rect_a, _rect_b) {
+    ld de,{_rect_a}
+    ld bc,{_rect_b}
+    call is_below_of_rect_func
+}
+
+macro intersects_rect(_rect_a, _rect_b) {
+    ld de,{_rect_a}
+    ld bc,{_rect_b}
+    call intersects_rect_func
+}
+
+macro intersection_rect(_rect_a, _rect_b) {
+    ld de,{_rect_a}
+    ld bc,{_rect_b}
+    call intersection_rect_func
+}
+
+//------------------------------------------------------------------------------
+include "rect.gasm"
+//------------------------------------------------------------------------------
+

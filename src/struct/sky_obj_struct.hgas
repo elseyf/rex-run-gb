@@ -1,0 +1,17 @@
+
+macro sky_obj_t(_name) {
+    scope {_name}: {
+        gobj_t(gobj)
+        field(entered_screen,1)
+        
+        constant cloud_width(   24)
+        constant star_width(    8)
+        constant height(8)
+        
+        constant init_x(160)
+        constant min_speed(fp8(0.25))
+        constant mask_speed(0x01FF)
+    }
+}
+struct(sky_obj_t)
+

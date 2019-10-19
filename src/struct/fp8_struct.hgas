@@ -1,0 +1,9 @@
+
+macro fp8_t(_name) {
+    scope {_name}: {
+        field(d, 1)
+        field(n, 1)
+    }
+}
+struct(fp8_t)
+

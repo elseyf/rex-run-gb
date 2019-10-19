@@ -1,0 +1,9 @@
+
+macro cactus_t(_name) {
+    scope {_name}: {
+        gobj_t(gobj)
+        field(entered_screen,1)
+    }
+}
+struct(cactus_t)
+

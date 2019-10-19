@@ -1,0 +1,11 @@
+
+macro rect_t(_name) {
+    scope {_name}: {
+        field(left, 1)
+        field(top, 1)
+        field(right, 1)
+        field(bottom, 1)
+    }
+}
+struct(rect_t)
+

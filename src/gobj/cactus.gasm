@@ -1,0 +1,97 @@
+scope init_cactus_func: {
+    push bc
+    ld bc,cactus_table
+    ld h,0
+    sla l
+    add hl,bc
+    pop bc
+    
+    ld a,(hl+)
+    ld h,(hl)
+    ld l,a
+    push hl
+    
+    ld a,(hl+)
+    ld h,(hl)
+    ld l,a
+    call init_gobj_func
+    
+    pop hl
+    inc hl
+    inc hl
+    ld a,(hl+)
+    ld b,(hl)
+    ld c,a
+    call set_rect_offset_gobj_func
+    call update_rect_gobj_func
+    
+    ld a,gobj_t.flags.is_active
+    call set_flag_gobj_func
+    
+    xor a
+    ld hl,cactus_t.entered_screen
+    add hl,de
+    ld (hl),a
+    
+    ret
+}
+
+scope update_cactus_func: {
+    ldh a,(game_running)
+    or a
+    jr z,skip_logic
+        ld a,gobj_t.flags.is_active
+        call get_flag_gobj_func
+        call nz,cactus_logic_func
+    skip_logic:
+    
+    ret
+}
+
+scope clear_cactus_func: {
+    call clear_gobj_func
+    ret
+}
+
+scope cactus_logic_func: {
+    ld hl,speed
+    ld a,(hl+)
+    cpl
+    ld c,a
+    ld a,(hl)
+    cpl
+    ld b,a
+    inc bc
+    ld hl,0
+    call move_gobj_func
+    
+    call is_onscreen_cactus_func
+    jr nz,check_onscreen_end
+        ld hl,cactus_t.entered_screen
+        add hl,de
+        ld a,(hl)
+        or a
+        jr z,check_onscreen_end
+            call clear_cactus_func
+    check_onscreen_end:
+    
+    ret
+}
+
+scope is_onscreen_cactus_func: {
+    ld hl,gobj_t.rect.right
+    add hl,de
+    ld a,(hl)
+    cp 160
+    ld a,0
+    jr nc,end
+        ld a,1
+        ld hl,cactus_t.entered_screen
+        add hl,de
+        ld (hl),a
+    end:
+        or a
+        ret
+}
+
+

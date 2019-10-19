@@ -1,0 +1,176 @@
+//------------------------------------------------------------------------------
+// Macros
+//------------------------------------------------------------------------------
+macro init_gobj(_gobj, _x, _y, _w, _h) {
+    ld de,{_gobj}
+    ld c,{_x}
+    ld b,{_y}
+    ld l,{_w}
+    ld h,{_h}
+    call init_gobj_func
+}
+
+macro clear_gobj(_gobj) {
+    ld de,{_gobj}
+    call clear_gobj_func
+}
+
+macro set_rect_offset_gobj(_gobj, _roff_x, _roff_y) {
+    ld de,{_gobj}
+    ld c,{_roff_x}
+    ld b,{_roff_y}
+    call set_rect_offset_gobj_func
+}
+
+macro set_anim_gobj(_gobj, _anim_pp) {
+    ld de,{_gobj}
+    ld bc,{_anim_pp}
+    call set_anim_gobj_func
+}
+
+macro set_anim_state_gobj(_gobj, _state) {
+    ld de,{_gobj}
+    ld a,{_state}
+    call set_anim_state_gobj_func
+}
+
+macro set_max_anim_states_gobj(_gobj, _max_states) {
+    ld de,{_gobj}
+    ld a,{_max_states}
+    call set_max_anim_states_gobj_func
+}
+
+macro update_anim_gobj(_gobj) {
+    ld de,{_gobj}
+    call update_anim_gobj_func
+}
+
+macro copy_to_oam_gobj(_gobj) {
+    ld de,{_gobj}
+    ldh a,(oam_slot)
+    call copy_to_oam_gobj_func
+    ldh (oam_slot),a
+}
+
+macro copy_to_oam_gobj(_gobj, _slot) {
+    ld de,{_gobj}
+    ld a,{_slot}
+    call copy_to_oam_slot_gobj_func
+}
+
+macro get_x_gobj(_gobj) {
+    ld de,{_gobj}
+    call get_x_gobj_func
+}
+
+macro get_y_gobj(_gobj) {
+    ld de,{_gobj}
+    call get_y_gobj_func
+}
+
+macro get_w_gobj(_gobj) {
+    ld de,{_gobj}
+    call get_w_gobj_func
+}
+
+macro get_h_gobj(_gobj) {
+    ld de,{_gobj}
+    call get_h_gobj_func
+}
+
+macro set_x_gobj(_gobj, _x) {
+    ld de,{_gobj}
+    ld bc,{_x}
+    call set_x_gobj_func
+}
+
+macro set_y_gobj(_gobj, _y) {
+    ld de,{_gobj}
+    ld bc,{_y}
+    call set_y_gobj_func
+}
+
+macro move_gobj(_gobj, _dx, _dy) {
+    ld de,{_gobj}
+    ld bc,{_dx}
+    ld hl,{_dy}
+    call move_gobj_func
+}
+
+macro is_offscreen_gobj(_gobj) {
+    ld de,{_gobj}
+    call is_offscreen_gobj_func
+}
+
+macro set_ax_gobj(_gobj, _ax) {
+    ld de,{_gobj}
+    ld bc,{_ax}
+    call set_ax_gobj_func
+}
+macro set_ay_gobj(_gobj, _ay) {
+    ld de,{_gobj}
+    ld bc,{_ay}
+    call set_ay_gobj_func
+}
+macro set_accel_gobj(_gobj, _ax, _ay) {
+    ld de,{_gobj}
+    ld bc,{_ax}
+    call set_ax_gobj_func
+    ld bc,{_ay}
+    call set_ay_gobj_func
+}
+
+macro set_vx_gobj(_gobj, _vx) {
+    ld de,{_gobj}
+    ld bc,{_vx}
+    call set_vx_gobj_func
+}
+macro set_vy_gobj(_gobj, _vy) {
+    ld de,{_gobj}
+    ld bc,{_vy}
+    call set_vy_gobj_func
+}
+macro set_vel_gobj(_gobj, _vx, _vy) {
+    ld de,{_gobj}
+    ld bc,{_vx}
+    call set_vx_gobj_func
+    ld bc,{_vy}
+    call set_vy_gobj_func
+}
+
+macro apply_physics_gobj(_gobj) {
+    ld de,{_gobj}
+    call apply_physics_gobj_func
+}
+
+macro get_flag_gobj(_gobj, _flag) {
+    ld de,{_gobj}
+    ld a,{_flag}
+    call get_flag_gobj_func
+}
+
+macro set_flag_gobj(_gobj, _flag) {
+    ld de,{_gobj}
+    ld a,{_flag}
+    call set_flag_gobj_func
+}
+
+macro reset_flag_gobj(_gobj, _flag) {
+    ld de,{_gobj}
+    ld a,{_flag}
+    call reset_flag_gobj_func
+}
+
+macro get_rect_gobj(_gobj) {
+    ld de,{_gobj}
+    call get_rect_gobj_func
+}
+
+macro intersects_gobj(_gobj_a, _gobj_b) {
+    ld de,{_gobj_a}
+    ld bc,{_gobj_b}
+    call intersects_gobj_func
+}
+
+include "gobj.gasm"
+

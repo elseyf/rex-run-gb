@@ -1,0 +1,272 @@
+
+scope switch_title_credits: {
+    update_rex(rex)
+    ld e,0
+    ld d,screen.title.lines
+    ld c,screen.title.lines
+    ld b,32
+    vblank_wait()
+    clear_title_loop:
+        push bc
+        ld c,0x7F
+        push de
+        call update_bg_map_tile_xy_func
+        pop de
+        pop bc
+        
+        inc e
+        ld a,e
+        and 31
+        ld e,a
+        jr nz,+; dec d; +
+        dec b
+        jr nz,clear_title_loop
+                push bc
+                push de
+                clear_oam_buffer()
+                update_rex(rex)
+                pop de
+                pop bc
+            vblank_wait()
+            ld b,32
+            dec c
+            jr nz,clear_title_loop
+                
+    update_rex(rex)
+    ld hl,credits_gfx
+    ld c,credits_gfx.sizeof/64
+    ldh a,(showing_credits)
+    or a
+    jr z,+
+        ld hl,title_gfx
+        ld c,title_gfx.sizeof/64
+    +;
+    ld de,BG_CHR-VRAM
+    ld b,64
+    vblank_wait()
+    load_credits_gfx_loop:
+        push bc
+        ld a,(hl+)
+        ld c,a
+        push de
+        push hl
+        call update_vram_func
+        pop hl
+        pop de
+        pop bc
+        
+        inc de
+        dec b
+        jr nz,load_credits_gfx_loop
+                push bc
+                push de
+                push hl
+                clear_oam_buffer()
+                update_rex(rex)
+                pop hl
+                pop de
+                pop bc
+            vblank_wait()
+            ld b,64
+            dec c
+            jr nz,load_credits_gfx_loop
+                
+    update_rex(rex)
+    ld hl,screen.credits
+    ld c,screen.credits.lines
+    ldh a,(showing_credits)
+    or a
+    jr z,+
+        ld hl,screen.title
+        ld c,screen.title.lines
+    +;
+    ld e,0
+    ld d,0
+    ld b,32
+    vblank_wait()
+    load_screen_loop:
+        push bc
+        ld a,(hl+)
+        ld c,a
+        push de
+        push hl
+        call update_bg_map_tile_xy_func
+        pop hl
+        pop de
+        pop bc
+        
+        inc e
+        ld a,e
+        cp 20
+        jr c,+
+            ld e,0
+            inc d
+            dec c
+            jr z,end_load_screen_loop
+        +;  dec b
+            jr nz,load_screen_loop
+                    push bc
+                    push de
+                    push hl
+                    clear_oam_buffer()
+                    update_rex(rex)
+                    pop hl
+                    pop de
+                    pop bc
+                vblank_wait()
+                ld b,60
+                jr load_screen_loop
+    end_load_screen_loop:
+    
+    ld hl,showing_credits
+    xor a
+    or (hl)
+    ld (hl),1
+    jr z,+; ld (hl),0; +
+    
+    end:
+        ret
+}
+
+scope screen: {
+    global variable screen_tile_counter(0)
+    
+    macro begin() {
+        global variable screen_tile_counter(0)
+    }
+    macro end() {
+        constant sizeof(screen_tile_counter)
+        constant lines(screen_tile_counter / 20)
+        
+    }
+    macro put(evaluate _t, evaluate _len) {
+        variable i(0)
+        while (i < {_len}) {
+            db {_t}; variable i(i + 1)
+        }
+        global variable screen_tile_counter(screen_tile_counter + {_len})
+    }
+    macro newline() {
+        variable i(0)
+        while (i < 20) {
+            put(0x7F, 1); variable i(i + 1)
+        }
+    }
+    macro tiles(_begin, evaluate _len, _pad) {
+        variable i({_begin})
+        while (i < ({_begin} + {_len})) {
+            put(i, 1); variable i(i + 1)
+        }
+        if (({_pad} > 0) && ((screen_tile_counter % 20) > 0)) {
+            put(0x7F, 20 - screen_tile_counter % 20)
+        }
+    }
+    macro tiles(_begin, evaluate _len) {
+        tiles({_begin}, {_len}, 0)
+    }
+    
+    scope title: {
+        constant start_tile(0x80)
+        
+        begin()
+            newline()
+            tiles(start_tile + 0x00, 0x50, 1)
+            newline()
+            tiles(start_tile + 0x50, 0x10, 1)
+            newline()
+            tiles(start_tile + 0x60, 0x0C, 1)
+            put(start_tile + 0x6C, 0x01)
+            put(start_tile + 0x6D, 0x0A)
+            put(start_tile + 0x6E, 0x01)
+            newline()
+        end()
+    }
+    
+    scope credits: {
+        constant start_tile(0x80)
+        
+        begin()
+            newline()
+            tiles(start_tile + 0x00, 0x10, 1)
+            tiles(start_tile + 0x10, 0x10, 1)
+            newline()
+            tiles(start_tile + 0x20, 0x10, 1)
+            tiles(start_tile + 0x30, 0x10, 1)
+            tiles(start_tile + 0x40, 0x10, 1)
+            newline()
+            tiles(start_tile + 0x50, 0x10, 1)
+            tiles(start_tile + 0x60, 0x10, 1)
+        end()
+    }
+    
+    //E = Starting line
+    //D = Num of lines
+    scope clear_func: {
+        ld c,d
+        ld d,e
+        ld e,0
+        ld b,64
+        vblank_wait()
+        loop:
+            push bc
+            ld c,0x7F
+            push de
+            call update_bg_map_tile_xy_func
+            pop de
+            pop bc
+            
+            inc e
+            ld a,e
+            cp 32
+            jr c,skip_inc
+                ld e,0
+                inc d
+                dec c
+                jr z,end
+            skip_inc:
+                dec b
+                jr nz,loop
+                    vblank_wait()
+                    ld b,64
+                    jr loop
+        end:
+            ret
+    }
+    
+    //A = Num of lines
+    scope load_func: {
+        ld e,0
+        ld d,0
+        ld b,60
+        ld c,a
+        vblank_wait()
+        loop:
+            push bc
+            ld a,(hl+)
+            ld c,a
+            push de
+            push hl
+            call update_bg_map_tile_xy_func
+            pop hl
+            pop de
+            pop bc
+            
+            inc e
+            ld a,e
+            cp 20
+            jr c,skip_inc
+                ld e,0
+                inc d
+                dec c
+                jr z,end
+            skip_inc:
+                dec b
+                jr nz,loop
+                    vblank_wait()
+                    ld b,60
+                    jr loop
+        end:
+            ret
+    }
+}
+

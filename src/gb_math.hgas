@@ -1,0 +1,69 @@
+//------------------------------------------------------------------------------
+// Constants
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+// Macros
+//------------------------------------------------------------------------------
+macro mul8(_a, _b) {
+    ld l,{_a}
+    ld h,{_b}
+    call mul8_func
+}
+
+macro div8(_a, _b) {
+    ld l,{_a}
+    ld h,{_b}
+    call div8_func
+}
+
+macro add16(_a, _b) {
+    ld hl,{_a}
+    ld bc,{_b}
+    call add16_func
+}
+
+macro add16(_a, _b) {
+    ld hl,{_a}
+    ld bc,{_b}
+    call sub16_func
+}
+
+macro mul16(_a, _b) {
+    ld hl,{_a}
+    ld bc,{_b}
+    call mul16_func
+}
+
+//macro div16(_a, _b) {
+//    ld hl,{_a}
+//    ld bc,{_b}
+//    call div16_func
+//}
+
+macro abs16(_a) {
+    ld hl,{_a}
+    call abs16_func
+}
+
+macro sin(_deg) {
+    ld hl,{_deg}
+    call sin_func
+}
+
+macro cos(_deg) {
+    ld hl,{_deg}
+    call cos_func
+}
+
+macro rand_init(_seed) {
+    ld hl,{_seed} & 0xFFFF
+    ld bc,{_seed} >> 16
+    call rand_init_func
+}
+
+macro rand() {
+    call rand_func
+}
+
+include "gb_math.gasm"
+

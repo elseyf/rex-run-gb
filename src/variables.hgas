@@ -1,0 +1,134 @@
+//------------------------------------------------------------------------------
+// Macros
+//------------------------------------------------------------------------------
+global variable var_addr(WRAM_START)
+global variable hram_var_addr(HRAM_START)
+macro start_var() {
+    pushvar origin, base
+    base (var_addr)
+}
+macro end_var() {
+    if (pc() > 0xE000) {
+        error "Not enough space for variable..."
+    }
+    global variable var_addr(pc())
+    pullvar base, origin
+}
+macro start_hram_var() {
+    pushvar origin, base
+    base (hram_var_addr)
+}
+macro end_hram_var() {
+    if (pc() > 0xFFFF) {
+        error "Not enough space for HRAM variable..."
+    }
+    global variable hram_var_addr(pc())
+    pullvar base, origin
+}
+macro var(_name, evaluate _size) {
+    scope {_name}: {
+        constant sizeof({_size})
+    }
+    base ({_name} + {_size})
+}
+//------------------------------------------------------------------------------
+// Variables
+//------------------------------------------------------------------------------
+start_hram_var()
+    //gb
+    var(oam_dma_wait_hram, oam_dma_wait.sizeof)
+    var(oam_slot,   1)
+    var(sp_buffer,  2)
+    var(vram_transfer_size, 1)
+    var(gb_type,    2)
+    var(time,       4)
+    var(joy0,       1)
+    var(old_joy0,   1)
+    var(scroll_x,   1)
+    var(scroll_y,   1)
+    var(win_x,      1)
+    var(win_y,      1)
+    var(lyc,        1)
+    var(bgp,        1)
+    var(obp0,       1)
+    var(obp1,       1)
+    var(vblank_happened,    1)
+    var(frame_counter,      1)
+    var(rom_bank,       1)
+    var(last_rom_bank,  1)
+    
+    //gb_math
+    var(seed, 4)
+    
+    //rex-run
+    var(first_time,         1)
+    var(intro_playing,      1)
+    var(game_running,       1)
+    var(held_a_on_init,     1)
+    var(showing_credits,    1)
+    var(is_night,           1)
+    var(day_night_c,        1)
+    var(day_night_pal_c,    1)
+    
+    var(score,          3)
+    var(score_dec,      6)
+    var(old_score_dec,  6)
+    var(blink_score_c,  1)
+    var(hi_score,       3)
+    var(hi_score_dec,   6)
+    fp8_t(speed)
+    fp8_t(scroll_x16)
+    var(old_scroll_x,   1)
+    var(spawn_type,     1)
+    var(spawn_disable_c,    1)
+    
+    var(ground_buffer,      3)
+    var(loading_cactus,     1)
+    var(cactus_load_num,    1)
+    var(cactus_load_w,      1)
+    var(cactus_load_c,      1)
+    
+    var(cactus_slot_c,      1)
+    var(enemy_slot_c,       1)
+    
+    var(sound_type,             1)
+    var(sound_ch1_type,         1)
+    var(sound_ch1_len,          1)
+    var(sound_ch1_c,            1)
+    var(sound_ch1_duration_c,   1)
+    var(sound_ch3_type,         1)
+    var(sound_ch3_len,          1)
+    var(sound_ch3_c,            1)
+    var(sound_ch3_duration_c,   1)
+end_hram_var()
+
+start_var()
+    //gb
+    var(obj_buffer, 40 * obj_t.sizeof)
+    var(vram_transfer_buffer, 4 * (MAX_BYTES_PER_VBLANK + 1))
+    
+    //rex-run
+    fp8_t(gravity)
+    rex_t(rex)
+    var(cactus_buffer, cactus_t.sizeof * num_cactus)
+    constant cactus_0(cactus_buffer + (cactus_t.sizeof * 0))
+    constant cactus_1(cactus_buffer + (cactus_t.sizeof * 1))
+    constant cactus_2(cactus_buffer + (cactus_t.sizeof * 2))
+    constant cactus_3(cactus_buffer + (cactus_t.sizeof * 3))
+    var(enemy_buffer, enemy_t.sizeof * num_enemy)
+    constant enemy_0(enemy_buffer + (enemy_t.sizeof * 0))
+    constant enemy_1(enemy_buffer + (enemy_t.sizeof * 1))
+    constant enemy_2(enemy_buffer + (enemy_t.sizeof * 2))
+    constant enemy_3(enemy_buffer + (enemy_t.sizeof * 3))
+    var(sky_obj_buffer, sky_obj_t * num_sky_obj)
+    constant sky_obj_0(sky_obj_buffer + (sky_obj_t.sizeof * 0))
+    constant sky_obj_1(sky_obj_buffer + (sky_obj_t.sizeof * 1))
+    constant sky_obj_2(sky_obj_buffer + (sky_obj_t.sizeof * 2))
+    constant sky_obj_3(sky_obj_buffer + (sky_obj_t.sizeof * 3))
+end_var()
+
+//Sanity check: obj_buffer must align on 256 Byte boundary
+if (obj_buffer & 0xFF != 0) {
+    error "obj_buffer not aligned...\n"
+}
+

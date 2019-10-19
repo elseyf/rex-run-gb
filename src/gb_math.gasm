@@ -1,0 +1,196 @@
+
+//In:   L, H
+//Out:  HL = (L * H)
+scope mul8_func: {
+    macro _mul8() {
+        add a
+        rl h
+        jr nc,+
+            add l
+            jr nc,+
+                inc h
+        +;
+    }
+    xor a
+    _mul8()
+    _mul8()
+    _mul8()
+    _mul8()
+    _mul8()
+    _mul8()
+    _mul8()
+    _mul8()
+    ld l,a
+    
+    ret
+}
+
+//In:   L, H
+//Out:  L = (L / H)
+//      A = (L % H)
+scope div8_func: {
+    macro _div8() {
+        sla l
+        rla
+        cp h
+        jr c,+
+            inc l
+            sub h
+        +;
+    }
+    
+    xor a
+    _div8()
+    _div8()
+    _div8()
+    _div8()
+    _div8()
+    _div8()
+    _div8()
+    _div8()
+    
+    ret
+}
+
+//In:   HL, BC
+//Out:  HL = (HL + BC)
+scope add16_func: {
+    add hl,bc
+    ret
+}
+
+//In:   HL, BC
+//Out:  HL = (HL - BC)
+scope sub16_func: {
+    ld a,l
+    sub c
+    ld l,a
+    ld a,h
+    sbc b
+    ld h,a
+    ret
+}
+
+//In:   HL, BC
+//Out:  BCHL = (HL * BC)
+scope mul16_func: {
+    macro _mul16() {
+        add hl,hl
+        rla
+        jr nc,+
+            add hl,de
+            adc 0
+        +;
+    }
+    
+    ld d,h
+    ld e,l
+    
+    ld a,b
+    ld hl,0
+    _mul16()
+    _mul16()
+    _mul16()
+    _mul16()
+    _mul16()
+    _mul16()
+    _mul16()
+    _mul16()
+    ld b,a
+    push hl
+    
+    ld a,c
+    ld hl,0
+    _mul16()
+    _mul16()
+    _mul16()
+    _mul16()
+    _mul16()
+    _mul16()
+    _mul16()
+    _mul16()
+    ld c,a
+    
+    pop de
+    ld a,h
+    add e
+    ld h,a
+    ld a,c
+    adc d
+    ld c,a
+    jr nc,+
+        inc b
+    +;  ret
+}
+
+//In:   HL
+//Out:  abs(HL)
+scope abs16_func: {
+    bit 7,h
+    jr z, end
+        ld a,l
+        cpl
+        ld l,a
+        ld a,h
+        cpl
+        ld e,h
+        inc hl
+    end:
+        ret
+}
+
+//24-Bit LFSR Init
+scope rand_init_func: {
+    ld a,l
+    ldh (seed),a
+    ld a,h
+    ldh (seed+1),a
+    ld a,c
+    ldh (seed+2),a
+    ld a,b
+    ldh (seed+3),a
+    ret
+}
+
+//LFSR/LCG, 16-Bit
+//In: seed, must not be 0
+//Out:  A = (HL = rand(seed)) & 0xFF
+scope rand_func: {
+    ld hl,seed
+    ld a,(hl+)
+    ld h,(hl)
+    ld l,a
+    
+    ld b,h
+    ld c,l
+    add hl,hl
+    add hl,hl
+    inc l
+    add hl,bc
+    
+    ld a,l
+    ldh (seed+0),a
+    ld a,h
+    ldh (seed+1),a
+    
+    ld hl,seed+2
+    ld a,(hl+)
+    ld h,(hl)
+    ld l,a
+    
+    add hl,hl
+    sbc a
+    and 0b00101101
+    xor l
+    ld l,a
+    
+    ld a,l
+    ldh (seed+2),a
+    ld a,h
+    ldh (seed+3),a
+    
+    add hl,bc
+    ld a,l
+    ret
+}
+

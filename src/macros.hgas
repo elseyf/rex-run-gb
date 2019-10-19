@@ -1,0 +1,79 @@
+//------------------------------------------------------------------------------
+//Defines
+//------------------------------------------------------------------------------
+constant false(0)
+constant true(1)
+constant FALSE(false)
+constant TRUE(true)
+//------------------------------------------------------------------------------
+constant ROM_BANK_START(    0x004000)
+constant WRAM_START(        0x00C000)
+constant WRAM_END(          0x00DFFF)
+constant HRAM_START(        0x00FF80)
+constant HRAM_END(          0x00FFFF)
+//------------------------------------------------------------------------------
+//Basic Macros
+//------------------------------------------------------------------------------
+macro org(_addr) {
+    if ({_addr} < 0x4000) {
+        origin ({_addr} & 0x3FFF)
+    } else {
+        origin (((({_addr} & 0xFF0000) >> 2) | (({_addr} & 0x3FFF))))
+    }
+    base {_addr}
+}
+
+macro incbin(_name, _file) {
+    scope {_name}: {
+        insert {_file}
+        constant sizeof(pc() - {_name})
+    }
+}
+
+global variable enum_counter(0)
+macro start_enum() {
+    start_enum(0)
+}
+macro start_enum(_start) {
+    global variable enum_counter({_start})
+}
+macro enum(_name) {
+    constant {_name}(enum_counter)
+    global variable enum_counter(enum_counter + 1)
+}
+
+macro map_bank(_bank) {
+    if ({_bank} == 0) {
+        org(0x000150)
+    } else if ({_bank} > 255) {
+        error "Specified Bank too big..."
+    } else {
+        if ({_bank} == 1) {
+            if ((pc() & 0x7FFF) > 0x4000) {
+                error "Not enough memory in Bank available..."
+            }
+        } else {
+            if ((pc() & 0xFFFF) > 0x8000) {
+                error "Not enough memory in Bank available..."
+            }
+        }
+        org(({_bank} << 16) | 0x4000)
+    }
+}
+macro ram_used() {
+    print "Used RAM:"
+    putchar(9)
+    print var_addr-WRAM, "\n"
+    if (var_addr > WRAM_END) {
+        error "Not enough memory in RAM available..."
+    }
+}
+macro hram_used() {
+    print "Used HRAM:"
+    putchar(9)
+    print hram_var_addr-HRAM, "\n"
+    if (hram_var_addr > HRAM_END) {
+        error "Not enough memory in HRAM available..."
+    }
+}
+

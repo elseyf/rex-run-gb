@@ -1,0 +1,655 @@
+
+scope init_gobj_func: {
+    push hl
+    xor a
+    ld hl,gobj_t.x
+    add hl,de
+    ld (hl+),a
+    ld (hl),c
+    ld hl,gobj_t.y
+    add hl,de
+    ld (hl+),a
+    ld (hl),b
+    pop bc
+    ld hl,gobj_t.w
+    add hl,de
+    ld (hl),c
+    ld hl,gobj_t.h
+    add hl,de
+    ld (hl),b
+    
+    call update_rect_gobj_func
+    
+    xor a
+    ld hl,gobj_t.ax
+    add hl,de
+    ld (hl+),a
+    ld (hl),a
+    ld hl,gobj_t.ay
+    add hl,de
+    ld (hl+),a
+    ld (hl),a
+    ld hl,gobj_t.vx
+    add hl,de
+    ld (hl+),a
+    ld (hl),a
+    ld hl,gobj_t.vy
+    add hl,de
+    ld (hl+),a
+    ld (hl),a
+    ld hl,gobj_t.anim_state
+    add hl,de
+    ld (hl),a
+    ld hl,gobj_t.frame_counter
+    add hl,de
+    ld (hl),a
+    ld hl,gobj_t.duration_counter
+    add hl,de
+    ld (hl),a
+    ld hl,gobj_t.flags
+    add hl,de
+    ld (hl),a
+    
+    ret
+}
+
+scope clear_gobj_func: {
+    ld bc,0
+    call set_ax_gobj_func
+    call set_ay_gobj_func
+    call set_vx_gobj_func
+    call set_vy_gobj_func
+    ld bc,fp8(160)
+    call set_x_gobj_func
+    call set_y_gobj_func
+    ld a,gobj_t.flags.is_active
+    call reset_flag_gobj_func
+    
+    ret
+}
+
+scope set_rect_offset_gobj_func: {
+    ld hl,gobj_t.roff_x
+    add hl,de
+    ld (hl),c
+    ld hl,gobj_t.roff_y
+    add hl,de
+    ld (hl),b
+    
+    call update_rect_gobj_func
+    
+    ret
+}
+
+scope set_anim_gobj_func: {
+    ld hl,gobj_t.anim_pp
+    add hl,de
+    ld a,c
+    ld (hl+),a
+    ld (hl),b
+    
+    ld a,0
+    call set_anim_state_gobj_func
+    
+    ret
+}
+
+scope set_anim_state_gobj_func: {
+    ld hl,gobj_t.anim_state
+    add hl,de
+    cp (hl)
+    jr z,end
+        ld (hl),a
+        xor a
+        ld hl,gobj_t.frame_counter
+        add hl,de
+        ld (hl),a
+        ld hl,gobj_t.duration_counter
+        add hl,de
+        ld (hl),a
+    end:
+        ret
+}
+
+scope set_max_anim_states_gobj_func: {
+    ld hl,gobj_t.max_anim_states
+    add hl,de
+    ld (hl),a
+    
+    ret
+}
+
+scope update_anim_gobj_func: {
+    ld hl,gobj_t.anim_pp
+    add hl,de
+    ld a,(hl+)
+    ld b,(hl)
+    ld c,a
+    ld hl,gobj_t.anim_state
+    add hl,de
+    ld a,(hl)
+    add a
+    add c
+    ld l,a
+    ld a,b
+    adc 0
+    ld h,a
+    ld a,(hl+)
+    ld b,(hl)
+    ld c,a
+    
+    ld hl,gobj_t.frame_counter
+    add hl,de
+    ld a,(hl)
+    push af
+    ld hl,anim_t.duration_p
+    add hl,bc
+    ld a,(hl+)
+    ld h,(hl)
+    ld l,a
+    pop af
+    add l
+    ld l,a
+    ld a,h
+    adc 0
+    ld h,a
+    ld a,(hl)
+    
+    ld hl,gobj_t.duration_counter
+    add hl,de
+    inc (hl)
+    cp (hl)
+    jr z,+
+    jr nc,end
+    +;  ld (hl),0
+        
+        ld hl,anim_t.size
+        add hl,bc
+        ld a,(hl)
+        ld hl,gobj_t.frame_counter
+        add hl,de
+        inc (hl)
+        cp (hl)
+        jr z,+
+        jr nc,end
+        +;  ld (hl),0
+    end:
+        ret
+}
+
+scope copy_to_oam_slot_gobj_func: {
+    push de
+    
+    ld hl,gobj_t.x+1
+    add hl,de
+    ld c,(hl)
+    ld hl,gobj_t.y+1
+    add hl,de
+    ld b,(hl)
+    push bc
+    ld c,a
+    
+    ld hl,gobj_t.frame_counter
+    add hl,de
+    ld b,(hl)
+    
+    ld hl,gobj_t.anim_state
+    add hl,de
+    ld a,(hl)
+    ld hl,gobj_t.anim_pp
+    add hl,de
+    ld e,(hl)
+    inc hl
+    ld d,(hl)
+    add a
+    add e
+    ld l,a
+    ld a,d
+    adc 0
+    ld h,a
+    ld a,(hl+)
+    ld d,(hl)
+    ld e,a
+    
+    ld hl,anim_t.frames_pp
+    add hl,de
+    ld a,(hl+)
+    ld d,(hl)
+    ld e,a
+    
+    ld h,0
+    ld l,b
+    add hl,hl
+    add hl,de
+    ld a,(hl+)
+    ld d,(hl)
+    ld e,a
+    
+    ld hl,meta_t.size
+    add hl,de
+    ld a,(hl)
+    push af
+    
+    ld hl,meta_t.obj_p
+    add hl,de
+    ld de,obj_buffer
+    sla c
+    sla c
+    ld a,c
+    add e
+    ld e,a
+    pop af
+    pop bc
+    loop:
+        push af
+        ld a,(hl+)
+        add 16
+        add b
+        ld (de),a
+        inc de
+        ld a,(hl+)
+        add 8
+        add c
+        ld (de),a
+        inc de
+        ld a,(hl+)
+        ld (de),a
+        inc de
+        ld a,(hl+)
+        ld (de),a
+        inc de
+        
+        pop af
+        dec a
+        jr nz,loop
+    ld a,e
+    srl a
+    srl a
+    pop de
+    ret
+}
+
+scope copy_to_oam_gobj_func: {
+    ldh a,(oam_slot)
+    call copy_to_oam_slot_gobj_func
+    ldh (oam_slot),a
+    
+    ret
+}
+
+scope get_x_gobj_func: {
+    ld hl,gobj_t.x
+    add hl,de
+    ld a,(hl+)
+    ld h,(hl)
+    ld l,a
+    
+    ret
+}
+
+scope get_y_gobj_func: {
+    ld hl,gobj_t.y
+    add hl,de
+    ld a,(hl+)
+    ld h,(hl)
+    ld l,a
+    
+    ret
+}
+
+scope get_w_gobj_func: {
+    ld hl,gobj_t.w
+    add hl,de
+    ld a,(hl)
+    
+    ret
+}
+
+scope get_h_gobj_func: {
+    ld hl,gobj_t.h
+    add hl,de
+    ld a,(hl)
+    
+    ret
+}
+
+scope set_x_gobj_func: {
+    ld hl,gobj_t.x
+    add hl,de
+    ld a,c
+    ld (hl+),a
+    ld (hl),b
+    
+    call update_rect_gobj_func
+    
+    ret
+}
+
+scope set_y_gobj_func: {
+    ld hl,gobj_t.y
+    add hl,de
+    ld a,c
+    ld (hl+),a
+    ld (hl),b
+    
+    call update_rect_gobj_func
+    
+    ret
+}
+
+scope move_gobj_func: {
+    push hl
+    
+    ld hl,gobj_t.x
+    add hl,de
+    ld a,(hl)
+    add c
+    ld (hl+),a
+    ld a,(hl)
+    adc b
+    ld (hl),a
+    
+    pop bc
+    ld hl,gobj_t.y
+    add hl,de
+    ld a,(hl)
+    add c
+    ld (hl+),a
+    ld a,(hl)
+    adc b
+    ld (hl),a
+    
+    call update_rect_gobj_func
+    
+    ret
+}
+
+scope is_offscreen_gobj_func: {
+    check_x:
+        ld hl,gobj_t.x+1
+        add hl,de
+        ld a,(hl)
+        cp 160
+        jr c,check_y
+            cp 248
+            jr nc,check_y
+                ld a,1
+                or a
+                ret
+    check_y:
+        ld hl,gobj_t.y+1
+        add hl,de
+        ld a,(hl)
+        cp 144
+        jr c,not_offscreen
+            cp 248
+            jr nc,not_offscreen
+                ld a,1
+                or a
+                ret
+    not_offscreen:
+        xor a
+        ret
+}
+
+scope set_ax_gobj_func: {
+    ld hl,gobj_t.ax
+    add hl,de
+    ld a,c
+    ld (hl+),a
+    ld (hl),b
+    
+    ret
+}
+
+scope set_ay_gobj_func: {
+    ld hl,gobj_t.ay
+    add hl,de
+    ld a,c
+    ld (hl+),a
+    ld (hl),b
+    
+    ret
+}
+
+scope set_vx_gobj_func: {
+    ld hl,gobj_t.vx
+    add hl,de
+    ld a,c
+    ld (hl+),a
+    ld (hl),b
+    
+    ret
+}
+
+scope set_vy_gobj_func: {
+    ld hl,gobj_t.vy
+    add hl,de
+    ld a,c
+    ld (hl+),a
+    ld (hl),b
+    
+    ret
+}
+
+scope apply_physics_gobj_func: {
+    ld hl,gobj_t.ax
+    add hl,de
+    ld a,(hl+)
+    ld b,(hl)
+    ld c,a
+    ld hl,gobj_t.vx
+    add hl,de
+    ld a,(hl)
+    add c
+    ld (hl+),a
+    ld c,a
+    ld a,(hl)
+    adc b
+    ld (hl),a
+    ld b,a
+    
+    bit 7,b
+    jr nz,check_max_vx_neg
+        ld a,gobj_t.max_vx >> 8
+        cp b
+        jr z,check_max_vx_apply
+            jr nc,check_max_vx_end
+        check_max_vx_apply:
+            ld b,a
+            ld (hl-),a
+            ld c,gobj_t.max_vx & 0xFF
+            ld (hl),c
+            jr check_max_vx_end
+    check_max_vx_neg:
+        ld a,(-gobj_t.max_vx) >> 8
+        cp b
+        jr c,check_max_vx_end
+            ld b,a
+            ld (hl-),a
+            ld c,(-gobj_t.max_vx) & 0xFF
+            ld (hl),c
+    check_max_vx_end:
+    
+    ld hl,gobj_t.x
+    add hl,de
+    ld a,(hl)
+    add c
+    ld (hl+),a
+    ld a,(hl)
+    adc b
+    ld (hl),a
+    
+    ld hl,gobj_t.ay
+    add hl,de
+    ld a,(hl+)
+    ld b,(hl)
+    ld c,a
+    ld hl,gravity
+    ld a,(hl+)
+    ld h,(hl)
+    ld l,a
+    add hl,bc
+    ld b,h
+    ld c,l
+    ld hl,gobj_t.vy
+    add hl,de
+    ld a,(hl)
+    add c
+    ld (hl+),a
+    ld c,a
+    ld a,(hl)
+    adc b
+    ld (hl),a
+    ld b,a
+    
+    bit 7,b
+    jr nz,check_max_vy_neg
+        ld a,gobj_t.max_vy >> 8
+        cp b
+        jr z,check_max_vy_apply
+            jr nc,check_max_vy_end
+        check_max_vy_apply:
+            ld b,a
+            ld (hl-),a
+            ld c,gobj_t.max_vy & 0xFF
+            ld (hl),c
+            jr check_max_vy_end
+    check_max_vy_neg:
+        ld a,(-gobj_t.max_vy) >> 8
+        cp b
+        jr c,check_max_vy_end
+            ld b,a
+            ld (hl-),a
+            ld c,(-gobj_t.max_vy) & 0xFF
+            ld (hl),c
+    check_max_vy_end:
+    
+    ld hl,gobj_t.y
+    add hl,de
+    ld a,(hl)
+    add c
+    ld (hl+),a
+    ld a,(hl)
+    adc b
+    ld (hl),a
+    
+    call update_rect_gobj_func
+    
+    ret
+}
+
+scope get_flag_gobj_func: {
+    ld hl,gobj_t.flags
+    add hl,de
+    and (hl)
+    ret
+}
+
+scope set_flag_gobj_func: {
+    ld hl,gobj_t.flags
+    add hl,de
+    or (hl)
+    ld (hl),a
+    ret
+}
+
+scope reset_flag_gobj_func: {
+    ld hl,gobj_t.flags
+    add hl,de
+    cpl
+    and (hl)
+    ld (hl),a
+    ret
+}
+
+scope get_rect_gobj_func: {
+    ld hl,gobj_t.x+1
+    add hl,de
+    ld a,(hl)
+    ld hl,gobj_t.roff_x
+    add hl,de
+    add (hl)
+    ld c,a
+    ld hl,gobj_t.w
+    add hl,de
+    ld a,(hl)
+    add c
+    ld b,a
+    
+    ld hl,gobj_t.y+1
+    add hl,de
+    ld a,(hl)
+    ld hl,gobj_t.roff_y
+    add hl,de
+    add (hl)
+    ld hl,gobj_t.h
+    add hl,de
+    ld h,(hl)
+    ld l,a
+    add h
+    ld h,a
+    
+    ret
+}
+
+scope update_rect_gobj_func: {
+    ld hl,gobj_t.rect
+    add hl,de
+    ld b,h
+    ld c,l
+    
+    ld hl,gobj_t.x+1
+    add hl,de
+    ld a,(hl)
+    ld hl,gobj_t.roff_x
+    add hl,de
+    add (hl)
+    ld hl,rect_t.left
+    add hl,bc
+    ld (hl),a
+    ld hl,gobj_t.w
+    add hl,de
+    add (hl)
+    ld hl,rect_t.right
+    add hl,bc
+    ld (hl),a
+    
+    ld hl,gobj_t.y+1
+    add hl,de
+    ld a,(hl)
+    ld hl,gobj_t.roff_y
+    add hl,de
+    add (hl)
+    ld hl,rect_t.top
+    add hl,bc
+    ld (hl),a
+    ld hl,gobj_t.h
+    add hl,de
+    add (hl)
+    ld hl,rect_t.bottom
+    add hl,bc
+    ld (hl),a
+    
+    ret
+}
+
+scope intersects_gobj_func: {
+    push de
+    push bc
+    
+    ld hl,gobj_t.rect
+    add hl,de
+    ld d,h
+    ld e,l
+    ld hl,gobj_t.rect
+    add hl,bc
+    ld b,h
+    ld c,l
+    call intersects_rect_func
+    
+    pop bc
+    pop de
+    ret
+}
+

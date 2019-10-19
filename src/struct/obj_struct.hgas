@@ -1,0 +1,11 @@
+
+macro obj_t(_name) {
+    scope {_name}: {
+        field(y, 1)
+        field(x, 1)
+        field(tile, 1)
+        field(attr, 1)
+    }
+}
+struct(obj_t)
+

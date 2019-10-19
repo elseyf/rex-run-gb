@@ -1,0 +1,22 @@
+//------------------------------------------------------------------------------
+// Macros
+//------------------------------------------------------------------------------
+macro init_enemy(_enemy, _y) {
+    ld de,{_enemy}
+    ld b,{_y}
+    call init_enemy_func
+}
+
+macro update_enemy(_enemy) {
+    ld de,{_enemy}
+    call update_enemy_func
+}
+
+macro clear_enemy(_enemy) {
+    ld de,{_enemy}
+    call clear_enemy_func
+}
+
+include "enemy_animation.gasm"
+include "enemy.gasm"
+

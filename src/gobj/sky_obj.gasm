@@ -1,0 +1,116 @@
+scope init_sky_obj_func: {
+    push hl
+    
+    ld a,l
+    or a
+    ld l,sky_obj_t.star_width
+    jr nz,+
+        ld l,sky_obj_t.cloud_width
+    +;  ld h,sky_obj_t.height
+    ld c,sky_obj_t.init_x
+    call init_gobj_func
+    
+    ld bc,0
+    call set_rect_offset_gobj_func
+    call update_rect_gobj_func
+    
+    ld bc,sky_obj_animation
+    call set_anim_gobj_func
+    
+    pop hl
+    ld a,l
+    call set_anim_state_gobj_func
+    
+    ld a,gobj_t.flags.is_active
+    call set_flag_gobj_func
+    
+    rand()
+    ld a,h
+    and sky_obj_t.mask_speed >> 8
+    ld h,a
+    ld a,l
+    and sky_obj_t.mask_speed & 0xFF
+    ld l,a
+    ld bc,sky_obj_t.min_speed
+    add hl,bc
+    ld a,h
+    cpl
+    ld b,a
+    ld a,l
+    cpl
+    ld c,a
+    inc bc
+    call set_vx_gobj_func
+    
+    xor a
+    ld hl,sky_obj_t.entered_screen
+    add hl,de
+    ld (hl),a
+    
+    ret
+}
+
+scope update_sky_obj_func: {
+    ldh a,(game_running)
+    or a
+    jr z,skip_logic
+        ld a,gobj_t.flags.is_active
+        call get_flag_gobj_func
+        call nz,sky_obj_logic_func
+    skip_logic:
+    
+    ld a,gobj_t.flags.is_active
+    call get_flag_gobj_func
+    jr z,skip_copy_to_oam
+        ldh a,(oam_slot)
+        call copy_to_oam_gobj_func
+        ldh (oam_slot),a
+    skip_copy_to_oam:
+    
+    ret
+}
+
+scope clear_sky_obj_func: {
+    call clear_gobj_func
+    ret
+}
+
+scope sky_obj_logic_func: {
+    ld hl,gobj_t.vx
+    add hl,de
+    ld a,(hl+)
+    ld b,(hl)
+    ld c,a
+    ld hl,0
+    call move_gobj_func
+    
+    call is_onscreen_sky_obj_func
+    jr nz,check_onscreen_end
+        ld hl,sky_obj_t.entered_screen
+        add hl,de
+        ld a,(hl)
+        or a
+        jr z,check_onscreen_end
+            call clear_sky_obj_func
+    check_onscreen_end:
+    
+    ret
+}
+
+scope is_onscreen_sky_obj_func: {
+    ld hl,gobj_t.rect.right
+    add hl,de
+    ld a,(hl)
+    cp 160
+    ld a,0
+    jr nc,end
+        ld a,1
+        ld hl,sky_obj_t.entered_screen
+        add hl,de
+        ld (hl),a
+    end:
+        or a
+        ret
+}
+
+

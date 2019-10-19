@@ -1,0 +1,21 @@
+//------------------------------------------------------------------------------
+// Macros
+//------------------------------------------------------------------------------
+macro init_rex(_rex) {
+    ld de,{_rex}
+    call init_rex_func
+}
+
+macro update_rex(_rex) {
+    ld de,{_rex}
+    call update_rex_func
+}
+
+macro clear_rex(_rex) {
+    ld de,{_rex}
+    call clear_rex_func
+}
+
+include "rex_animation.gasm"
+include "rex.gasm"
+

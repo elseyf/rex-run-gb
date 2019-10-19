@@ -1,0 +1,31 @@
+
+macro rex_t(_name) {
+    scope {_name}: {
+        gobj_t(gobj)
+        field(distance, 3)
+        field(jump_c, 1)
+        field(is_dead, 1)
+        
+        constant width(     4)
+        constant height(    17)
+        constant roff_x(    10)
+        constant roff_y(    1)
+        
+        constant ducking_width(     4)
+        constant ducking_height(    8)
+        constant ducking_roff_x(    10)
+        constant ducking_roff_y(    10)
+        
+        constant init_x(8)
+        constant init_y(ground_y)
+        
+        constant intro_jvel(-fp8(6.0))
+        
+        constant jvel(-fp8(3.75))
+        constant init_jump_c(10)
+        
+        constant quick_down_acc(fp8(1.0))
+    }
+}
+struct(rex_t)
+

@@ -1,0 +1,406 @@
+//------------------------------------------------------------------------------
+//Functions
+//------------------------------------------------------------------------------
+scope vblank_isr: {
+    //VBlank is 4560 cycles long
+    push af
+    push bc
+    push de
+    push hl                             //80 cycles
+    
+    call oam_dma_wait_hram              //24 + (160 * 4) cycles = 664 cycles
+    
+    ldh a,(vram_transfer_size)
+    or a
+    jr z,no_transfer
+        ld (sp_buffer),sp
+        ld sp,vram_transfer_buffer      //56 cycles
+    transfer_loop:
+        pop hl
+        pop af
+        jr z,end_transfer
+        ld (hl),a
+        jr transfer_loop                //(52 * transfer_size) cycles
+    end_transfer:
+        ld sp,sp_buffer
+        pop hl
+        ld sp,hl
+        xor a
+        ldh (vram_transfer_size),a      //48 cycles
+    no_transfer:
+        ldh a,(lyc)
+        ldh (REG_LYC),a
+        ldh a,(bgp)
+        ldh (REG_BGP),a
+        ldh a,(obp0)
+        ldh (REG_OBP0),a
+        ldh a,(obp1)
+        ldh (REG_OBP1),a
+        ldh a,(scroll_x)
+        ldh (REG_BG_SCX),a
+        ldh a,(scroll_y)
+        ldh (REG_BG_SCY),a
+        ldh a,(win_x)
+        ldh (REG_WX),a
+        ldh a,(win_y)
+        ldh (REG_WY),a                  //192 cycles
+        
+        enable_int(LCD_STAT_INT)
+        xor a
+        ldh (REG_IF),a
+        
+        ld a,true
+        ldh (vblank_happened),a
+        ld hl,frame_counter
+        inc (hl)
+        
+        pop hl
+        pop de
+        pop bc
+        pop af
+        reti
+}
+
+scope lcd_stat_isr: {
+    push af
+    
+    ldh a,(REG_LY)
+    cp 48
+    jr nc,skip_score
+        ld a,0
+        ldh (REG_BG_SCX),a
+        jr end
+    skip_score:
+    
+    game_scroll:
+        ldh a,(scroll_x)
+        ldh (REG_BG_SCX),a
+        disable_int(LCD_STAT_INT)
+    end:
+        pop af
+        reti
+}
+
+scope timer_isr: {
+    reti
+}
+
+scope serial_isr: {
+    reti
+}
+
+scope joypad_isr: {
+    reti
+}
+
+scope oam_dma_wait: {
+    ld a,obj_buffer >> 8    //Use DMA on OAM Buffer         ; 2 Bytes
+    ldh (REG_OAM_DMA),a     //Transfer takes 160 * 4 Cycles ; 2 Bytes
+    ld a,40                 //Wait for (40 * 16)            ; 2 Bytes
+    loop:                   //         + 8 + 16 Cycles
+        dec a               //                              ; 1 Bytes
+        jr nz,loop          //                              ; 2 Bytes
+    ret                     //                              ; 1 Bytes
+    end:                    //                              ; = 10 Bytes
+    constant sizeof(end - oam_dma_wait)
+}
+
+scope init_gameboy_func: {
+    //This function is called at startup
+    ld c,a                  //Registers A and B identify
+                            //the GameBoy Type after reset
+    
+    ld hl,WRAM            //clear WRAM at
+    ld de,0x2000            //0xC000 - 0xDFFF
+    xor a
+    clear:
+        ld (hl+),a
+        dec de
+        cp e
+        jr nz,clear
+            cp d
+            jr nz,clear
+        
+        ld hl,0xFF80
+    hram_clear:
+        xor a
+        ld (hl+),a
+        ld a,l
+        cp 0xFF
+        jr nz,hram_clear
+        
+        ld hl,gb_type       //Detect GameBoy Type
+        ld a,c              //DMG: bc == 0x0001
+        ld (hl+),a          //GBP: bc == 0x00FF
+        ld a,b              //CGB: bc == 0x0011
+        and 1               //GBA: bc == 0x0111
+        ld (hl),a
+        
+        ld sp,0xE000        //Stack points to RAM
+        
+        jp ROM_START_ADDR   //actual start address
+}
+
+scope copy_func: {
+    inc b
+    xor a
+    or c
+    jr nz,loop
+        dec b
+    loop:
+        ld a,(de)
+        ld (hl+),a
+        inc de
+        dec c
+        jr nz,loop
+            dec b
+            jr nz,loop
+                ret
+}
+
+scope fill_func: {
+    inc b
+    xor a
+    or c
+    jr nz,pre_loop
+        dec b
+    pre_loop:
+        ld a,e
+    loop:
+        ld (hl+),a
+        dec c
+        jr nz,loop
+            dec b
+            jr nz,loop
+                ret
+}
+
+scope set_bg_map_rect_func: {
+    push bc
+    ld b,l
+    ld l,c
+    call mul8_func  // HL = (y * w)
+    ld c,b
+    ld b,0
+    add hl,bc
+    ld bc,BG_MAP
+    add hl,bc
+    pop bc
+    ld a,c
+    push af
+    push hl
+    loop:
+        ld a,(de)
+        inc de
+        ld (hl+),a
+        dec c
+        jr nz,loop
+            pop hl
+            pop af
+            push af
+            ld c,a
+            ld a,l
+            add 0x20
+            ld l,a
+            ld a,h
+            adc 0
+            ld h,a
+            push hl
+            dec b
+            jr nz,loop
+    pop af
+    pop hl
+    ret
+}
+
+scope set_bg_map_tile_func: {
+    ld hl,BG_MAP
+    add hl,de
+    ld (hl),c
+    ret
+}
+
+scope set_bg_map_tile_xy_func: {
+    xor a
+    sla d
+    rla
+    sla d
+    rla
+    sla d
+    rla
+    sla d
+    rla
+    sla d
+    rla
+    ld h,a
+    ld l,d
+    ld d,0
+    add hl,de
+    ld d,h
+    ld e,l
+    
+    call set_bg_map_tile_func
+    ret
+}
+
+scope update_vram_func: {
+    ld hl,VRAM
+    add hl,de
+    ld d,h
+    ld e,l
+    
+    ld a,(vram_transfer_size)
+    sla a
+    sla a
+    ld hl,vram_transfer_buffer
+    add l
+    ld l,a
+    ld a,h
+    adc 0
+    ld h,a
+    
+    ld a,e
+    ld (hl+),a
+    ld a,d
+    ld (hl+),a
+    xor a
+    ld (hl+),a
+    ld a,c
+    ld (hl),a
+    
+    ld a,l
+    add 3
+    ld l,a
+    ld a,h
+    adc 0
+    ld h,a
+    ld (hl),0xFF
+    
+    ld hl,vram_transfer_size
+    inc (hl)
+    
+    ret
+}
+
+scope update_bg_map_tile_func: {
+    ld hl,BG_MAP-VRAM
+    add hl,de
+    ld d,h
+    ld e,l
+    call update_vram_func
+    
+    ret
+}
+
+scope update_bg_map_tile_xy_func: {
+    xor a
+    sla d
+    rla
+    sla d
+    rla
+    sla d
+    rla
+    sla d
+    rla
+    sla d
+    rla
+    ld h,a
+    ld l,d
+    ld d,0
+    add hl,de
+    ld d,h
+    ld e,l
+    
+    call update_bg_map_tile_func
+    ret
+}
+
+scope set_obj_func: {
+    ld a,c
+    ld (hl+),a
+    ld a,b
+    ld (hl+),a
+    ld a,e
+    ld (hl+),a
+    ld a,d
+    ld (hl+),a
+    ret
+}
+
+scope copy_to_oam_obj_func: {
+    add a
+    add a
+    ld hl,obj_buffer
+    add l
+    ld l,a
+    ld a,h
+    adc 0
+    ld h,a
+    
+    ld a,(bc)   //Y, displaced by 16
+    inc bc
+    add 16
+    ld (hl+),a
+    ld a,(bc)   //X, displaced by 8
+    inc bc
+    add 8
+    ld (hl+),a
+    ld a,(bc)   //Tile
+    inc bc
+    ld (hl+),a
+    ld a,(bc)   //Attr
+    inc bc
+    ld (hl+),a
+    
+    ld a,l
+    srl a
+    srl a
+    
+    ret
+}
+
+scope clear_oam_buffer_func: {
+    ld hl,obj_buffer
+    ld a,160
+    ld c,40
+    loop:
+        ld (hl+),a
+        inc l
+        inc l
+        inc l
+        dec c
+        jr nz,loop
+    xor a
+    ldh (oam_slot),a
+    ret
+}
+
+scope read_joypad_func: {
+    ld a,(joy0)
+    ld (old_joy0),a
+    
+    ld hl,REG_JOY0
+    ld (hl),KEY_DIR
+    ld a,(hl)
+    ld a,(hl)
+    ld a,(hl)
+    ld a,(hl)
+    swap a
+    and 0xF0
+    ld b,a
+    
+    ld (hl),KEY_BTN
+    ld c,(hl)
+    ld c,(hl)
+    ld c,(hl)
+    ld a,(hl)
+    and 0x0F
+    or b
+    
+    ld (hl),KEY_OFF
+    cpl
+    ld (joy0),a
+    ret
+}
+
+

@@ -1,0 +1,57 @@
+
+macro meta_t(_name) {
+    scope {_name}: {
+        field(size, 1)
+        field(obj_p, 2)
+    }
+}
+struct(meta_t)
+
+macro anim_t(_name) {
+    scope {_name}: {
+        field(size, 1)
+        field(frames_pp, 2)
+        field(duration_p, 2)
+    }
+}
+struct(anim_t)
+
+macro gobj_t(_name) {
+    scope {_name}: {
+        fp8_t(ax)
+        fp8_t(ay)
+        fp8_t(vx)
+        fp8_t(vy)
+        fp8_t(x)
+        fp8_t(y)
+        field(w, 1)
+        field(h, 1)
+        field(roff_x, 1)
+        field(roff_y, 1)
+        rect_t(rect)
+        
+        field(max_anim_states, 1)
+        field(anim_state, 1)
+        field(frame_counter, 1)
+        field(duration_counter, 1)
+        field(anim_pp, 2)
+        
+        scope flags: {
+            field(v, 1)
+            constant dir_v(     1 << 0)
+            constant dir_h(     1 << 1)
+            constant dir(dir_h | dir_v)
+                constant dir_left_up(   (~dir_h) | ~(dir_v))
+                constant dir_left_down( (~dir_h) |  (dir_v))
+                constant dir_right_up(  ( dir_h) | ~(dir_v))
+                constant dir_right_down(( dir_h) |  (dir_v))
+            constant is_on_ground(  1 << 2)
+            constant is_active(     1 << 7)
+        }
+        
+        constant max_vx(fp8(7))
+        constant max_vy(fp8(7))
+    }
+}
+struct(gobj_t)
+

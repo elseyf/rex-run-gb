@@ -1,0 +1,64 @@
+//------------------------------------------------------------------------------
+scope sky_obj_anim_state: {
+    constant cloud( 0)
+    constant star_0(1)
+    constant star_1(2)
+    constant star_2(3)
+}
+
+sky_obj_animation:
+    dw sky_obj_cloud_anim
+    dw sky_obj_star_0_anim
+    dw sky_obj_star_1_anim
+    dw sky_obj_star_2_anim
+//------------------------------------------------------------------------------
+sky_obj_cloud_meta_0:
+    db 3
+    db 0x00, 0x00, 0x40, 0x00
+    db 0x00, 0x08, 0x41, 0x00
+    db 0x00, 0x10, 0x42, 0x00
+sky_obj_cloud_frames:
+    dw sky_obj_cloud_meta_0
+sky_obj_cloud_duration:
+    db 255
+sky_obj_cloud_anim:
+    db 1
+    dw sky_obj_cloud_frames
+    dw sky_obj_cloud_duration
+
+sky_obj_star_0_meta_0:
+    db 1
+    db 0x00, 0x00, 0x43, 0x00
+sky_obj_star_0_frames:
+    dw sky_obj_star_0_meta_0
+sky_obj_star_0_duration:
+    db 255
+sky_obj_star_0_anim:
+    db 1
+    dw sky_obj_star_0_frames
+    dw sky_obj_star_0_duration
+
+sky_obj_star_1_meta_0:
+    db 1
+    db 0x00, 0x00, 0x43, 0x00
+sky_obj_star_1_frames:
+    dw sky_obj_star_1_meta_0
+sky_obj_star_1_duration:
+    db 255
+sky_obj_star_1_anim:
+    db 1
+    dw sky_obj_star_1_frames
+    dw sky_obj_star_1_duration
+
+sky_obj_star_2_meta_0:
+    db 1
+    db 0x00, 0x00, 0x43, 0x00
+sky_obj_star_2_frames:
+    dw sky_obj_star_2_meta_0
+sky_obj_star_2_duration:
+    db 255
+sky_obj_star_2_anim:
+    db 1
+    dw sky_obj_star_2_frames
+    dw sky_obj_star_2_duration
+

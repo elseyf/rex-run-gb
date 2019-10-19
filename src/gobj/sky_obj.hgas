@@ -1,0 +1,23 @@
+//------------------------------------------------------------------------------
+// Macros
+//------------------------------------------------------------------------------
+macro init_sky_obj(_sky_obj, _x, _y, _type) {
+    ld c,{_x}
+    ld b,{_y}
+    ld l,{_type}
+    ld de,{_sky_obj}
+    call init_sky_obj_func
+}
+
+macro update_sky_obj(_sky_obj) {
+    ld de,{_sky_obj}
+    call update_sky_obj_func
+}
+
+macro clear_sky_obj(_sky_obj) {
+    ld de,{_sky_obj}
+    call clear_sky_obj_func
+}
+
+include "sky_obj.gasm"
+include "sky_obj_animation.gasm"

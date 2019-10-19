@@ -1,0 +1,32 @@
+//------------------------------------------------------------------------------
+scope enemy_anim_state: {
+    constant fly(0)
+}
+
+enemy_animation:
+    dw enemy_fly_anim
+//------------------------------------------------------------------------------
+enemy_fly_meta_0:
+    db 5
+    db 0x00, 0x00, 0x36, 0x00
+    db 0x00, 0x08, 0x37, 0x00
+    db 0x00, 0x10, 0x38, 0x00
+    db 0x08, 0x08, 0x47, 0x00
+    db 0x08, 0x10, 0x48, 0x00
+enemy_fly_meta_1:
+    db 5
+    db 0x00-3, 0x00, 0x39, 0x00
+    db 0x00-3, 0x08, 0x3A, 0x00
+    db 0x08-3, 0x00, 0x49, 0x00
+    db 0x08-3, 0x08, 0x4A, 0x00
+    db 0x08-3, 0x10, 0x4B, 0x00
+enemy_fly_frames:
+    dw enemy_fly_meta_0
+    dw enemy_fly_meta_1
+enemy_fly_duration:
+    db 16, 16
+enemy_fly_anim:
+    db 2
+    dw enemy_fly_frames
+    dw enemy_fly_duration
+

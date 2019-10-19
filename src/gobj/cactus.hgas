@@ -1,0 +1,41 @@
+//------------------------------------------------------------------------------
+// Macros
+//------------------------------------------------------------------------------
+macro init_cactus(_cactus, _x, _y, _type) {
+    ld c,{_x}
+    ld b,{_y}
+    ld l,{_type}
+    ld de,{_cactus}
+    call init_cactus_func
+}
+
+macro update_cactus(_cactus) {
+    ld de,{_cactus}
+    call update_cactus_func
+}
+
+macro clear_cactus(_cactus) {
+    ld de,{_cactus}
+    call clear_cactus_func
+}
+
+scope cactus_table: {
+    dw cactus_0, cactus_1, cactus_2
+    dw cactus_3, cactus_4, cactus_5
+    
+    cactus_0:
+        db 5, 15, 1, 1
+    cactus_1:
+        db 14, 15, 1, 1
+    cactus_2:
+        db 22, 15, 1, 1
+    cactus_3:
+        db 9, 22, 1, 2
+    cactus_4:
+        db 22, 22, 1, 2
+    cactus_5:
+        db 35, 22, 1, 2
+}
+
+include "cactus.gasm"
+

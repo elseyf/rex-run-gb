@@ -1,0 +1,20 @@
+
+//In:   HL, BC
+//Out:  HL = (HL + BC)
+scope add_fp8_func: {
+    add hl,bc
+    ret
+}
+
+//In:   HL, BC
+//Out:  HL = (HL - BC)
+scope sub_fp8_func: {
+    ld a,l
+    sub c
+    ld l,a
+    ld a,h
+    sbc b
+    ld h,a
+    ret
+}
+

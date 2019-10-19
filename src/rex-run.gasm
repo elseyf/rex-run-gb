@@ -1,0 +1,1080 @@
+//------------------------------------------------------------------------------
+// Rex Run Game Boy port
+// by el_seyf
+//------------------------------------------------------------------------------
+arch gb.cpu
+//------------------------------------------------------------------------------
+//Includes
+//------------------------------------------------------------------------------
+include "macros.hgas"
+//------------------------------------------------------------------------------
+include "header.hgas"
+//------------------------------------------------------------------------------
+map_bank(0)
+
+include "structs.hgas"
+include "variables.hgas"
+
+include "gb.hgas"
+include "gb_math.hgas"
+include "fp8.hgas"
+include "rect.hgas"
+include "gobj.hgas"
+
+include "gobj/rex.hgas"
+include "gobj/cactus.hgas"
+include "gobj/enemy.hgas"
+include "gobj/sky_obj.hgas"
+
+include "screen.gasm"
+include "sound.gasm"
+//------------------------------------------------------------------------------
+// Constants
+//------------------------------------------------------------------------------
+constant DAY_PALETTE(0xD0)
+constant NIGHT_PALETTE(~DAY_PALETTE)
+
+macro set_gravity(_gravity) {
+    ld hl,gravity
+    ld a,{_gravity}
+    ld (hl+),a
+    ld a,{_gravity}>>8
+    ld (hl),a
+}
+constant gravity_val(fp8(0.3))
+
+constant ground_tile_y(16)
+constant ground_y((ground_tile_y - 2) << 3)
+
+constant initial_speed( fp8(2.0))
+constant max_speed(     fp8(8.0))
+
+constant init_win_x(    48)
+constant init_win_y(    ground_tile_y << 3)
+
+constant init_spawn_disable_counter(15)
+
+constant min_y_enemy(   80)
+constant mask_y_enemy(  0x1F)
+
+constant min_y_sky_obj( 16)
+constant mask_y_sky_obj(0x1F)
+
+constant num_cactus(    4)
+constant num_enemy(     4)
+constant num_sky_obj(   4)
+
+scope retry_icon_obj: {
+    constant num_obj(6)
+    constant x(70)
+    constant y(64)
+    db 0x00+y, 0x00+x, 0x50, 0x00
+    db 0x00+y, 0x08+x, 0x51, 0x00
+    db 0x00+y, 0x10+x, 0x52, 0x00
+    db 0x08+y, 0x00+x, 0x60, 0x00
+    db 0x08+y, 0x08+x, 0x61, 0x00
+    db 0x08+y, 0x10+x, 0x62, 0x00
+}
+//------------------------------------------------------------------------------
+// Code
+//------------------------------------------------------------------------------
+scope start: {
+    disable_int(0xFF)
+    disable_display()
+    
+    copy(oam_dma_wait_hram, oam_dma_wait, oam_dma_wait.sizeof)
+    
+    set_bg_map_offset(0)
+    set_win_map_offset(1)
+    set_bg_win_tile_offset(0)
+    
+    copy(VRAM + 0x0000, obj_gfx, obj_gfx.sizeof)
+    copy(VRAM + 0x0800, title_gfx, title_gfx.sizeof)
+    copy(VRAM + 0x1000, bg_gfx, bg_gfx.sizeof)
+    fill(BG_MAP, 0x7F, 0x0400)
+    fill(WIN_MAP, 0x7F, 0x0400)
+    
+    xor a
+    ldh (scroll_x),a
+    ldh (scroll_y),a
+    
+    ld a,init_win_x
+    ldh (win_x),a
+    ld a,init_win_y
+    ldh (win_y),a
+    
+    set_bgp(DAY_PALETTE)
+    set_obp0(DAY_PALETTE)
+    set_obp1(NIGHT_PALETTE)
+    
+    disable_bg()
+    disable_win()
+    disable_obj()
+    enable_display()
+    enable_int(VBLANK_INT | LCD_STAT_INT)
+    ei
+    
+    rand_init(0x59414D4F)
+    set_gravity(gravity_val)
+    
+    xor a
+    ldh (first_time),a
+    call init_game
+    ld a,1
+    ldh (first_time),a
+    xor a
+    ldh (intro_playing),a
+    ldh (game_running),a
+    
+    ld a,init_win_x
+    ldh (win_x),a
+    ld a,init_win_y
+    ldh (win_y),a
+    
+    ld hl,screen.title
+    ld a,screen.title.lines
+    call screen.load_func
+    
+    ld hl,showing_credits
+    ld (hl),0
+    
+    ld a,LCD_STAT_MODE_0_INT
+    ldh (REG_LCD_STAT),a
+    
+    enable_bg()
+    enable_win()
+    enable_obj()
+    
+    call init_sound
+}
+
+scope main: {
+    vblank_wait()
+    clear_oam_buffer()
+    read_joypad()
+    rand()
+    
+    key_push(KEY_SELECT)
+    jr z,skip_show_credits
+        ldh a,(first_time)
+        or a
+        call nz,switch_title_credits
+    skip_show_credits:
+    
+    key_push(KEY_A)
+    jr z,skip_start_game
+        ldh a,(showing_credits)
+        or a
+        jr z,+
+            call switch_title_credits
+            jr skip_start_game
+        +;  ldh a,(game_running)
+            or a
+            jr nz,skip_start_game
+                call init_game
+    skip_start_game:
+    
+    key_release(KEY_A)
+    jr z,skip_allow_jump
+        ld a,0
+        ldh (held_a_on_init),a
+    skip_allow_jump:
+    
+    ldh a,(intro_playing)
+    or a
+    jr z,skip_intro
+        call play_intro
+    skip_intro:
+    
+    ldh a,(game_running)
+    or a
+    jr z,skip_game_logic
+        ldh a,(intro_playing)
+        or a
+        jr nz,skip_game_logic
+            call game_logic
+    skip_game_logic:
+    
+    ld a,(rex.is_dead)
+    or a
+    jr z,skip_show_retry_icon
+        ld bc,retry_icon_obj
+        ld e,retry_icon_obj.num_obj
+        copy_retry_icon_loop:
+            ldh a,(oam_slot)
+            call copy_to_oam_obj_func
+            ldh (oam_slot),a
+            dec e
+            jr nz,copy_retry_icon_loop
+    skip_show_retry_icon:
+    
+    update_rex(rex)
+    update_cactus(cactus_0)
+    update_cactus(cactus_1)
+    update_cactus(cactus_2)
+    update_cactus(cactus_3)
+    update_enemy(enemy_0)
+    update_enemy(enemy_1)
+    update_enemy(enemy_2)
+    update_enemy(enemy_3)
+    update_sky_obj(sky_obj_0)
+    update_sky_obj(sky_obj_1)
+    update_sky_obj(sky_obj_2)
+    update_sky_obj(sky_obj_3)
+    
+    ldh a,(first_time)
+    or a
+    jr nz,skip_put_score
+        call put_score
+    skip_put_score:
+    
+    call check_day_night
+    
+    call update_sound
+    
+    jp main
+}
+//------------------------------------------------------------------------------
+scope init_game: {
+    ldh a,(first_time)
+    or a
+    jp nz,first_init
+        ld a,0x00
+        ldh (bgp),a
+        ldh (obp0),a
+        ldh (obp1),a
+        
+        ld e,0
+        ld d,18
+        call screen.clear_func
+        
+        ground_init:
+            ld b,32
+            ld e,0
+            ld d,ground_tile_y
+            vblank_wait()
+        ground_init_loop:
+            push bc
+            push de
+            rand()
+            and 0x1F
+            ld c,a
+            call update_bg_map_tile_xy_func
+            pop de
+            pop bc
+            inc e
+            dec b
+            jr nz,ground_init_loop
+            
+            xor a
+            ldh (scroll_x16+0),a
+            ldh (scroll_x16+1),a
+            ldh (old_scroll_x),a
+            ldh (loading_cactus),a
+            ldh (cactus_load_num),a
+            ldh (cactus_load_w),a
+            ldh (cactus_load_c),a
+            ldh (cactus_slot_c),a
+            ldh (spawn_disable_c),a
+            ldh (held_a_on_init),a
+            ldh (blink_score_c),a
+            ldh (is_night),a
+            ldh (day_night_c),a
+            ldh (day_night_pal_c),a
+            
+            ldh (score_dec+0),a
+            ldh (score_dec+1),a
+            ldh (score_dec+2),a
+            ldh (score_dec+3),a
+            ldh (score_dec+4),a
+            ldh (score_dec+5),a
+            
+            ld a,168
+            ldh (win_x),a
+            
+            init_rex(rex)
+            call put_score
+            
+            clear_cactus(cactus_0)
+            clear_cactus(cactus_1)
+            clear_cactus(cactus_2)
+            clear_cactus(cactus_3)
+            clear_enemy(enemy_0)
+            clear_enemy(enemy_1)
+            clear_enemy(enemy_2)
+            clear_enemy(enemy_3)
+            clear_sky_obj(sky_obj_0)
+            clear_sky_obj(sky_obj_1)
+            clear_sky_obj(sky_obj_2)
+            clear_sky_obj(sky_obj_3)
+            
+            ld a,DAY_PALETTE
+            ldh (bgp),a
+            ldh (obp0),a
+            ld a,NIGHT_PALETTE
+            ldh (obp1),a
+    first_init:
+        ldh a,(first_time)
+        or a
+        jr z,skip_intro
+            ld a,init_win_x
+            ldh (win_x),a
+            ld a,init_win_y
+            ldh (win_y),a
+            xor a
+            ldh (first_time),a
+            ld de,rex
+            ld bc,rex_t.intro_jvel
+            call set_vy_gobj_func
+            ld a,gobj_t.flags.is_on_ground
+            call reset_flag_gobj_func
+            ld a,1
+            ldh (intro_playing),a
+            
+            ld a,1
+            ldh (game_running),a
+            
+            update_rex(rex)
+            dec sp
+            ldhl sp,0
+            ld (hl),9
+            ld hl,screen.title
+            ld e,0
+            ld d,9
+            ld b,32
+            vblank_wait()
+            clear_title_text:
+                ld c,0x7F
+                push bc
+                push de
+                push hl
+                call update_bg_map_tile_xy_func
+                pop hl
+                pop de
+                pop bc
+                
+                inc e
+                ld a,e
+                and 31
+                ld e,a
+                jr nz,+;dec d;+
+                dec b
+                jr nz,clear_title_text
+                        push bc
+                        push de
+                        push hl
+                        clear_oam_buffer()
+                        update_rex(rex)
+                        pop hl
+                        pop de
+                        pop bc
+                    vblank_wait()
+                    ld b,32
+                    push hl
+                    ldhl sp,2
+                    dec (hl)
+                    pop hl
+                    jr nz,clear_title_text
+                        inc sp
+        skip_intro:
+            ld a,1
+            ldh (game_running),a
+            
+            key_hold(KEY_A)
+            jr z,+
+                ld a,1
+                ldh (held_a_on_init),a
+            +;
+    end:
+        ret
+}
+
+scope play_intro: {
+    ld de,rex
+    ld a,gobj_t.flags.is_on_ground
+    call get_flag_gobj_func
+    jr nz,end_intro
+        ldh a,(win_x)
+        add 8
+        ldh (win_x),a
+        cp 168
+        jr c,skip_clamp_win_x
+            ld a,168
+            ldh (win_x),a
+        skip_clamp_win_x:
+            jr end
+    end_intro:
+        ld a,168
+        ldh (win_x),a
+        ld a,0
+        ldh (intro_playing),a
+    end:
+        ret
+}
+//------------------------------------------------------------------------------
+scope game_logic: {
+    scope calc_speed: {
+        ld hl,rex.distance
+        ld a,(hl+)
+        ld c,a
+        ld a,(hl+)
+        ld b,a
+        ld a,(hl)
+        srl a
+        rr b
+        rr c
+        srl a
+        rr b
+        rr c
+        srl a
+        rr b
+        rr c
+        
+        ld hl,initial_speed
+        add hl,bc
+        ld b,h
+        ld c,l
+        
+        ld a,b
+        cp max_speed>>8
+        jr nc,max_speed_reached
+            ld hl,speed
+            ld a,c
+            ld (hl+),a
+            ld (hl),b
+            jr end
+        max_speed_reached:
+            ld bc,max_speed
+            ld hl,speed
+            ld a,c
+            ld (hl+),a
+            ld (hl),b
+        end:
+    }
+    
+    ld hl,scroll_x16
+    ld a,(hl+)
+    ld b,(hl)
+    ld c,a
+    ld hl,speed
+    ld a,(hl+)
+    ld h,(hl)
+    ld l,a
+    add hl,bc
+    ld b,h
+    ld c,l
+    ld hl,scroll_x16
+    ld a,c
+    ld (hl+),a
+    ld (hl),b
+    ld a,b
+    ldh (scroll_x),a
+    
+    ldh a,(old_scroll_x)
+    ld c,a
+    ldh a,(scroll_x)
+    sub c
+    cp 8
+    jr c,skip_spawn_stuff
+        ldh a,(old_scroll_x)
+        add 8
+        ldh (old_scroll_x),a
+        call spawn_stuff
+    skip_spawn_stuff:
+    
+    call check_spawn_sky_obj
+    
+    call check_spawn_moon
+    
+    ret
+}
+
+scope spawn_stuff: {
+    ldh a,(spawn_disable_c)
+    or a
+    jr z,+
+        dec a
+    +;  ldh (spawn_disable_c),a
+    
+    ldh a,(loading_cactus)
+    or a
+    jp nz,is_cactus
+        rand()
+        ldh (spawn_type),a
+        cp 240
+        jp c,is_ground
+            ldh a,(spawn_disable_c)
+            or a
+            jp nz,is_ground
+                ldh a,(speed+1)
+                sla a
+                add init_spawn_disable_counter
+                ldh (spawn_disable_c),a
+            check_spawn_enemy:
+                ldh a,(score+1)
+                cp 2
+                jr c,init_load_cactus
+                    rand()
+                    and 3
+                    jr nz,init_load_cactus
+                        ldh a,(enemy_slot_c)
+                        inc a
+                        and 3
+                        ldh (enemy_slot_c),a
+                        ld l,a
+                        ld h,enemy_t.sizeof
+                        call mul8_func
+                        ld de,enemy_buffer
+                        add hl,de
+                        ld d,h
+                        ld e,l
+                        
+                        rand()
+                        and mask_y_enemy
+                        add min_y_enemy
+                        ld b,a
+                        call init_enemy_func
+                        jp is_ground
+        init_load_cactus:
+            ld hl,loading_cactus
+            ld (hl),1
+            ldh a,(spawn_type)
+            and 0x07
+            cp 6
+            jr c,skip_clamp
+                sub 6
+            skip_clamp:
+                ldh (cactus_load_num),a
+                sla a
+                ld hl,cactus_tile_table
+                ld c,a
+                ld b,0
+                add hl,bc
+                ld a,(hl+)
+                ld h,(hl)
+                ld l,a
+                ld a,(hl)
+                ldh (cactus_load_w),a
+                ld a,0
+                ldh (cactus_load_c),a
+        is_cactus:
+            ldh a,(cactus_load_num)
+            sla a
+            ld hl,cactus_tile_table
+            ld c,a
+            ld b,0
+            add hl,bc
+            ld a,(hl+)
+            ld h,(hl)
+            ld l,a
+            inc hl
+            ldh a,(cactus_load_c)
+            ld c,a
+            add c
+            add c
+            ld c,a
+            ld b,0
+            add hl,bc
+            ld a,(hl+)
+            ldh (ground_buffer+0),a
+            ld a,(hl+)
+            ldh (ground_buffer+1),a
+            ld a,(hl+)
+            ldh (ground_buffer+2),a
+            
+            ldh a,(cactus_load_c)
+            inc a
+            ld hl,(cactus_load_w)
+            cp (hl)
+            jr c,is_cactus_not_finished
+                ldh a,(cactus_slot_c)
+                inc a
+                and 3
+                ldh (cactus_slot_c),a
+                ld l,a
+                ld h,cactus_t.sizeof
+                call mul8_func
+                ld de,cactus_buffer
+                add hl,de
+                ld d,h
+                ld e,l
+                
+                ld bc,cactus_table
+                ld h,0
+                ldh a,(cactus_load_num)
+                sla a
+                ld l,a
+                add hl,bc
+                ld a,(hl+)
+                ld h,(hl)
+                ld l,a
+                
+                ld a,(hl+)
+                inc hl
+                cpl
+                inc a
+                sub (hl)
+                sub 8
+                and 0xF8
+                ld c,a
+                ldh a,(cactus_load_num)
+                cp 3
+                ld a,(ground_tile_y - 2) << 3
+                jr nc,+
+                    add 8
+                +;  ld b,a
+                ldh a,(cactus_load_num)
+                ld l,a
+                call init_cactus_func
+                
+                xor a
+                ldh (loading_cactus),a
+            is_cactus_not_finished:
+                ldh (cactus_load_c),a
+                jr load
+        is_ground:
+            ldh a,(spawn_type)
+            and 0x1F
+            ld hl,ground_buffer
+            ld (hl+),a
+            ld a,0x7F
+            ld (hl+),a
+            ld a,0x7F
+            ld (hl),0x7F
+        load:
+            ldh a,(old_scroll_x)
+            sub 16
+            srl a
+            srl a
+            srl a
+            ld e,a
+            ld d,ground_tile_y
+            push de
+            ldh a,(ground_buffer+0)
+            ld c,a
+            call update_bg_map_tile_xy_func
+            pop de
+            dec d
+            push de
+            ldh a,(ground_buffer+1)
+            ld c,a
+            call update_bg_map_tile_xy_func
+            pop de
+            dec d
+            push de
+            ldh a,(ground_buffer+2)
+            ld c,a
+            call update_bg_map_tile_xy_func
+            pop de
+    end:
+        ret
+        
+    scope cactus_tile_table: {
+        dw cactus_tile_0, cactus_tile_1, cactus_tile_2
+        dw cactus_tile_3, cactus_tile_4, cactus_tile_5
+        
+        cactus_tile_0:
+            db 1
+            db 0x40, 0x30, 0x7F
+        cactus_tile_1:
+            db 2
+            db 0x41, 0x31, 0x7F
+            db 0x42, 0x32, 0x7F
+        cactus_tile_2:
+            db 3
+            db 0x43, 0x33, 0x7F
+            db 0x44, 0x34, 0x7F
+            db 0x45, 0x35, 0x7F
+        cactus_tile_3:
+            db 2
+            db 0x46, 0x36, 0x26
+            db 0x47, 0x37, 0x27
+        cactus_tile_4:
+            db 3
+            db 0x48, 0x38, 0x28
+            db 0x49, 0x39, 0x29
+            db 0x4A, 0x3A, 0x2A
+        cactus_tile_5:
+            db 5
+            db 0x4B, 0x3B, 0x2B
+            db 0x4C, 0x3C, 0x2C
+            db 0x4D, 0x3D, 0x2D
+            db 0x4E, 0x3E, 0x2E
+            db 0x4F, 0x3F, 0x2F
+    }
+}
+
+scope check_spawn_sky_obj: {
+    rand()
+    and 0x7F
+    jp nz,end
+        ld de,sky_obj_buffer
+        ld c,num_sky_obj
+        loop:
+            ld a,gobj_t.flags.is_active
+            call get_flag_gobj_func
+            jr nz,not_empty
+                rand()
+                and mask_y_sky_obj
+                add min_y_sky_obj
+                push af
+                rand()
+                and 3
+                ld l,a
+                ldh a,(is_night)
+                or a
+                jr nz,+
+                    ld l,0
+                +;  pop af
+                    ld b,a
+                    call init_sky_obj_func
+                    jr end
+            not_empty:
+                ld hl,sky_obj_t.sizeof
+                add hl,de
+                ld d,h
+                ld e,l
+                dec c
+                jr nz,loop
+    end:
+        ret
+}
+
+scope check_spawn_moon: {
+    ldh a,(is_night)
+    or a
+    ld hl,no_moon
+    jr z,+
+        ld hl,moon
+    +;  call draw
+    ret
+    
+    scope draw: {
+        ld e,16
+        ld d,2
+        ld b,0
+        loop:
+            ld a,(hl+)
+            ld c,a
+            push hl
+            push de
+            
+            ld a,b
+            and 1
+            add e
+            ld e,a
+            ld a,b
+            srl a
+            and 3
+            add d
+            ld d,a
+            
+            call update_bg_map_tile_xy_func
+            pop de
+            pop hl
+            
+            inc b
+            ld a,b
+            cp moon.sizeof
+            jr nz,loop
+        ret
+    }
+    
+    scope moon: {
+        db 0x5C, 0x5D, 0x6C, 0x6D, 0x7C, 0x7D
+        constant sizeof(pc() - moon)
+    }
+    scope no_moon: {
+        db 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F
+        constant sizeof(pc() - no_moon)
+    }
+}
+//------------------------------------------------------------------------------
+scope check_day_night: {
+    ld hl,score_dec
+    ld c,score_dec.sizeof
+    -;  ld a,(hl+)
+        or a
+        jr nz,+
+        dec c
+        jr nz,-
+            jr end
+    +;
+    ldh a,(day_night_c)
+    or a
+    jr nz,do_transition
+        ldh a,(game_running)
+        or a
+        jr z,end
+            ldh a,(score_dec)
+            or a
+            jr nz,end
+                ldh a,(score_dec+1)
+                or a
+                jr nz,end
+                    ldh a,(score_dec+2)
+                    or a
+                    jr nz,end
+                        ld a,8
+                        ldh (day_night_c),a
+                        ld a,0
+                        ldh (day_night_pal_c),a
+                        ldh a,(is_night)
+                        or a
+                        ld a,1
+                        jr z,+
+                            ld a,0
+                        +;  ldh (is_night),a
+                            jr end
+    do_transition:
+        dec a
+        ldh (day_night_c),a
+        and 0x01
+        jr nz,end
+            ld hl,day_to_night_pal
+            ldh a,(day_night_pal_c)
+            and 3
+            ld c,a
+            ld b,0
+            add hl,bc
+            ldh a,(is_night)
+            or a
+            ld a,(hl)
+            jr nz,+; cpl; +
+            ldh (bgp),a
+            ldh (obp0),a
+            cpl
+            ldh (obp1),a
+            ld hl,day_night_pal_c
+            inc (hl)
+    end:
+        ret
+        
+    day_to_night_pal:
+        db 0xD0, 0xA5, 0x6A, 0x2F
+}
+//------------------------------------------------------------------------------
+scope check_hi_score: {
+    ldh a,(score+2)
+    ld hl,hi_score+2
+    cp (hl)
+    jr c,skip_update
+    jr nz,update
+        ldh a,(score+1)
+        ld hl,hi_score+1
+        cp (hl)
+        jr c,skip_update
+        jr nz,update
+            ldh a,(score+0)
+            ld hl,hi_score+0
+            cp (hl)
+            jr c,skip_update
+            jr nz,update
+            update:
+                ld hl,score
+                ld a,(hl+)
+                ldh (hi_score+0),a
+                ld a,(hl+)
+                ldh (hi_score+1),a
+                ld a,(hl+)
+                ldh (hi_score+2),a
+    skip_update:
+        ret
+}
+//------------------------------------------------------------------------------
+scope put_score: {
+    ld hl,rex.distance
+    ld a,(hl+)
+    ld c,a
+    ld a,(hl+)
+    ld b,a
+    ld a,(hl)
+    srl a
+    rr b
+    rr c
+    srl a
+    rr b
+    rr c
+    ld e,a
+    
+    ld hl,score
+    ld a,c
+    ld (hl+),a
+    ld a,b
+    ld (hl+),a
+    ld a,e
+    ld (hl),a
+    
+    ld hl,score
+    ld bc,score_dec
+    call to_dec
+    
+    ld hl,hi_score
+    ld bc,hi_score_dec
+    call to_dec
+    
+    ldh a,(game_running)
+    or a
+    jr z,print_score
+        ld hl,blink_score_c
+        ld a,(hl)
+        or a
+        jr z,print_score
+            dec (hl)
+            bit 4,(hl)
+            ld a,0x60
+            jr nz,+
+                ld a,0x70
+            +;  ld hl,old_score_dec
+                ld de,19
+                call print
+                jr check_blink
+        print_score:
+            ld hl,score_dec
+            ld de,19
+            ld a,0x60
+            call print
+        
+    check_blink:
+        ld hl,score_dec
+        ld c,score_dec.sizeof
+        -;  ld a,(hl+)
+            or a
+            jr nz,+
+            dec c
+            jr nz,-
+                jr skip_blink
+        +;
+        ldh a,(score_dec)
+        or a
+        jr nz,skip_blink
+            ldh a,(score_dec+1)
+            or a
+            jr nz,skip_blink
+                ldh a,(blink_score_c)
+                or a
+                jr nz,skip_blink
+                    ld hl,score_dec
+                    ld de,old_score_dec
+                    ld c,old_score_dec.sizeof
+                    -;  ld a,(hl+)
+                        ld (de),a
+                        inc de
+                        dec c
+                        jr nz,-
+                    ld hl,blink_score_c
+                    ld (hl),0x7F
+                    
+                    ld a,sound.score
+                    call play_sound
+    skip_blink:
+    
+    ld de,0
+    ld c,0x5A
+    call update_bg_map_tile_xy_func
+    ld de,1
+    ld c,0x5B
+    call update_bg_map_tile_xy_func
+    
+    ld hl,hi_score_dec
+    ld de,8
+    ld a,0x50
+    call print
+    
+    ret
+    
+    scope to_dec: {
+        ld a,(hl+)
+        ld e,a
+        ld a,(hl+)
+        ld d,a
+        ld a,e
+        ld e,(hl)
+        ld h,d
+        ld l,a
+        
+        ld d,score_dec.sizeof
+        to_dec_loop:
+            push bc
+            call div10_ehl
+            pop bc
+            ld (bc),a
+            inc bc
+            dec d
+            jr nz,to_dec_loop
+        ret
+    }
+    
+    scope print: {
+        push af
+        inc sp
+        ld b,score_dec.sizeof
+        update_bg_map_loop:
+            ld a,(hl+)
+            push hl
+            ldhl sp,2
+            add (hl)
+            ld c,a
+            
+            push de
+            call update_bg_map_tile_xy_func
+            pop de
+            pop hl
+            
+            dec e
+            dec b
+            jr nz,update_bg_map_loop
+                inc sp
+        ret
+    }
+}
+
+scope div10_ehl: {
+    ld c,10
+    ld b,5
+    xor a
+    sla e
+    rla
+    sla e
+    rla
+    sla e
+    rla
+    
+    loop0:
+        sla e
+        rla
+        cp c
+        jr c,+
+            sub c
+            inc e
+        +;  dec b
+            jr nz,loop0
+    ld b,16
+    loop1:
+        add hl,hl
+        rla
+        cp c
+        jr c,+
+            sub c
+            inc l
+        +;  dec b
+            jr nz,loop1
+    end:
+        ret
+}
+//------------------------------------------------------------------------------
+incbin(title_gfx,   "gfx/title.bin")
+incbin(credits_gfx, "gfx/credits.bin")
+incbin(bg_gfx,      "gfx/bg.bin")
+incbin(obj_gfx,     "gfx/obj.bin")
+//------------------------------------------------------------------------------
+constant bank_00_end(pc())
+//------------------------------------------------------------------------------
+map_bank(2)
+//------------------------------------------------------------------------------
+//Print Information to built ROM:
+print "Used Bank 0:";putchar(9);print bank_00_end, "\n"
+ram_used()
+hram_used()
+//------------------------------------------------------------------------------
+
